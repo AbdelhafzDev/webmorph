@@ -87,6 +87,9 @@ export function registrableDomain(hostname: string): string {
  */
 export const STATIC_ASSET_PATH = /\/(assets|static|_next\/static|i18n|locales?|translations?|translation[-_]files)\/|\.(js|mjs|css|map|png|jpe?g|gif|svg|webp|ico|woff2?|ttf)(\?|$)/i;
 
+/** A calendar date as sites put it in URLs (2026-11-12, 12/11/2026, 12.11.2026). A literal date goes stale. */
+export const DATE_VALUE = /^(\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})$/;
+
 export function sameSite(a: string, b: string): boolean {
   return registrableDomain(a) === registrableDomain(b);
 }

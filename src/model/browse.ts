@@ -14,7 +14,7 @@ import type { NetworkRecord } from '../schemas/networkEvidence.js';
 import type { ToolStep } from '../schemas/toolDefinition.js';
 import type { Capability, CapabilityInput, EvidenceRef } from '../schemas/websiteModel.js';
 import { shortHash } from '../core/ids.js';
-import { hostnameOf, sameSite, STATIC_ASSET_PATH } from '../net/url.js';
+import { DATE_VALUE, hostnameOf, sameSite, STATIC_ASSET_PATH } from '../net/url.js';
 
 export interface BrowseOptions {
   scope: ScopePolicy;
@@ -378,6 +378,11 @@ export class BrowseSession {
       if (i.mode === 'value' && action.kind !== 'open' && action.value !== i.example) throw new BrowseRefusal(`input ${i.name}: action ${i.actionIndex} used "${action.value ?? ''}", not "${i.example}"`);
       if (i.mode === 'locator' && (action.kind !== 'click' || !action.element?.locators.some((l) => l.value.includes(i.example)))) throw new BrowseRefusal(`input ${i.name}: no locator of the clicked element at action ${i.actionIndex} contains "${i.example}"; bind to the option you clicked`);
     }
+    // An optional date never defaults to the literal date browsed (it would go stale): it follows the first required
+    // date input (a one-way search returns on its departure date), or becomes required when there is none.
+    const requiredDate = p.inputs.find((i) => i.required && DATE_VALUE.test(i.example));
+    p = { ...p, inputs: p.inputs.map((i) => (!i.required && DATE_VALUE.test(i.example) && !requiredDate ? { ...i, required: true } : i)) };
+    const dateFollows = new Map(p.inputs.filter((i) => !i.required && DATE_VALUE.test(i.example)).map((i) => [i.name, requiredDate!.name]));
     const bound = new Map<number, Array<(typeof p.inputs)[number]>>();
     for (const i of p.inputs) bound.set(i.actionIndex, [...(bound.get(i.actionIndex) ?? []), i]);
     for (const [index, inputs] of bound) if (inputs.length > 1 && this.actions[index]!.kind !== 'open') throw new BrowseRefusal(`action ${index} is bound to ${inputs.length} inputs; only an opened URL can carry several`);
@@ -400,7 +405,7 @@ export class BrowseSession {
         // An optional input left out keeps the value the session used.
         const stale = fixedDatesIn(url);
         if (stale.length) throw new BrowseRefusal(`the program would always send ${stale.join(', ')}: a fixed date goes stale. Bind it to a date input (several inputs may bind to one opened URL; a date input also binds every query value equal to its example), or open the URL with that value equal to a bound date`);
-        const defaults = Object.fromEntries(inputs.filter((i) => !i.required).map((i) => [i.name, i.example]));
+        const defaults = Object.fromEntries(inputs.filter((i) => !i.required).map((i) => [i.name, dateFollows.has(i.name) ? `{{${dateFollows.get(i.name)}}}` : i.example]));
         steps.push({ op: 'navigate', url, ...(Object.keys(defaults).length ? { defaults } : {}) });
         steps.push({ op: 'wait', for: 'dom-stable', timeoutMs: settleMs });
         continue;
@@ -434,7 +439,7 @@ export class BrowseSession {
       steps.push({ op: 'extract', extractor: { kind: 'link-list', into: 'results', scope: 'body', hrefPattern: p.extract.hrefPattern ?? '^/.+', maxItems: Math.min(Math.max(p.extract.maxItems, 1), 200) } });
       outputSchema = { type: 'object', properties: { results: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, url: { type: 'string' } }, required: ['title', 'url'], additionalProperties: false } }, count: { type: 'integer', minimum: 0 }, pageUrl: { type: 'string' } }, required: ['results', 'count', 'pageUrl'], additionalProperties: false };
     }
-    const inputs: CapabilityInput[] = p.inputs.map((i) => ({ name: i.name, type: i.type, required: i.required, description: i.description, source: 'form-field', example: i.example }));
+    const inputs: CapabilityInput[] = p.inputs.map((i) => ({ name: i.name, type: i.type, required: i.required, description: dateFollows.has(i.name) ? `${i.description} Defaults to ${dateFollows.get(i.name)} when left out.` : i.description, source: 'form-field', example: i.example }));
     const evidence: EvidenceRef[] = [...p.evidence.map((e) => ({ artifactType: e.artifactType as EvidenceRef['artifactType'], refId: e.refId, note: 'cited by the model harness' })), ...this.visited.map((url) => ({ artifactType: 'PageModel' as const, refId: url, note: 'browsed by the model harness' }))];
     const entity = p.entity ? p.entity.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') : undefined;
     return {
@@ -555,7 +560,6 @@ const obj = (properties: Record<string, unknown>) => ({ type: 'object' as const,
  * The site's own XHR and fetch requests, one line per method and path (with a count), API-looking calls first.
  * Third-party traffic (analytics, telemetry, chat widgets) and static assets are counted, not listed.
  */
-const DATE_VALUE = /^(\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})$/;
 
 /** Query values and path segments of a URL template that are fixed dates (no placeholder): they go stale. */
 export function fixedDatesIn(template: string): string[] {

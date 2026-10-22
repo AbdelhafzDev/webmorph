@@ -220,6 +220,25 @@ describe('the model drives the browser (D27)', () => {
       const cap = session.buildWorkflowCapability({ ...proposal, inputs: [{ name: 'travel_date', type: 'string', required: true, description: 'YYYY-MM-DD', example: '2026-11-12', actionIndex: 0, mode: 'value' }] }, site.baseUrl);
       const nav = (cap.mechanics.program as Array<Record<string, unknown>>).find((s) => s['op'] === 'navigate')!;
       expect(nav['url']).toBe(`${site.baseUrl}/trips?date={{travel_date}}&returnDate={{travel_date}}&lang=en`);
+
+      // An optional return date follows the travel date instead of defaulting to the literal date browsed.
+      await session.open(`${site.baseUrl}/trips?date=2026-11-12&returnDate=2026-11-14&lang=en`);
+      const travel = { name: 'travel_date', type: 'string' as const, required: true, description: 'YYYY-MM-DD', example: '2026-11-12', actionIndex: 1, mode: 'value' as const };
+      const back = { name: 'return_date', type: 'string' as const, required: false, description: 'YYYY-MM-DD.', example: '2026-11-14', actionIndex: 1, mode: 'value' as const };
+      const roundTrip = session.buildWorkflowCapability({ ...proposal, name: 'find_round_trips', inputs: [travel, back] }, site.baseUrl);
+      const nav2 = (roundTrip.mechanics.program as Array<Record<string, unknown>>).find((st) => st['op'] === 'navigate')!;
+      expect(nav2).toMatchObject({ url: `${site.baseUrl}/trips?date={{travel_date}}&returnDate={{return_date}}&lang=en`, defaults: { return_date: '{{travel_date}}' } });
+      const roundTool = generateProgramTool(roundTrip, { ...model, site: { ...model.site, origin: site.baseUrl } }, { pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1500 })!;
+      expect(roundTool.inputSchema).toMatchObject({ required: ['travel_date'] });
+      expect((roundTool.inputSchema as { properties: Record<string, { default?: unknown; description?: string }> }).properties['return_date']).toMatchObject({ description: 'YYYY-MM-DD. Defaults to travel_date when left out.' });
+      expect((roundTool.inputSchema as { properties: Record<string, { default?: unknown }> }).properties['return_date']!.default).toBeUndefined();
+      const oneWay = await executeTool(runtime, roundTool, { travel_date: '2026-12-01' }, { scope, pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1500 });
+      expect(oneWay.ok, oneWay.errorMessage).toBe(true);
+      expect((oneWay.output as { pageUrl: string }).pageUrl).toContain('date=2026-12-01&returnDate=2026-12-01');
+      // With no required date to follow, an optional date becomes required.
+      await session.open(`${site.baseUrl}/trips?returnDate=2026-11-14&lang=en`);
+      const alone = session.buildWorkflowCapability({ ...proposal, name: 'find_returns', inputs: [{ ...back, actionIndex: 2 }] }, site.baseUrl);
+      expect(alone.inputs).toEqual([expect.objectContaining({ name: 'return_date', required: true })]);
     } finally {
       await session.close();
     }
