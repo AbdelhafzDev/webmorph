@@ -8,3 +8,8 @@ dist/
 
 # Internal comparison, not published
 docs/comparisons/haraj.md
+
+# Local secrets (never committed)
+.env
+.env.*
+!.env.example

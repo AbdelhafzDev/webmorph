@@ -1,5 +1,13 @@
 #!/usr/bin/env node
 import { Command, InvalidArgumentError } from 'commander';
+
+// Local secrets such as ANTHROPIC_API_KEY live in an untracked .env in the working directory.
+// Variables already set in the environment win; a missing file is fine.
+try {
+  process.loadEnvFile('.env');
+} catch {
+  // no .env here
+}
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { discover, PHASE1_STAGES, PHASE3_STAGES, BrowserRuntime, executeTool, scopeFromManifest, ToolRegistry, ToolExecutor, createMcpServer, serveStdio, Recorder, stage0Scope, siteIdFromOrigin, normalizeUrl, originOf, FETCH_NORMALIZE, StudioServer } from './index.js';
