@@ -1,21 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import type OpenAI from 'openai';
 import { z } from 'zod';
-import { OpenAIModelClient, toOpenAIMessages, jsonSchemaOf } from '../src/model/openai.js';
+import { OpenAIModelClient, toOpenAIMessages, toResponseInput, jsonSchemaOf } from '../src/model/openai.js';
 import { resolveProvider, createModelClient, defaultModelId } from '../src/model/provider.js';
 import { harnessTools } from '../src/model/agent.js';
 
 /** A stub of the SDK that records the request and answers with a canned completion. */
 function stub(answer: Record<string, unknown>) {
   const calls: Array<Record<string, unknown>> = [];
-  const client = { chat: { completions: { create: async (params: Record<string, unknown>) => (calls.push(params), answer) } } } as unknown as OpenAI;
+  const create = async (params: Record<string, unknown>) => (calls.push(params), answer);
+  const client = { chat: { completions: { create } }, responses: { create } } as unknown as OpenAI;
   return { client, calls };
 }
 const usage = { prompt_tokens: 50, completion_tokens: 10, prompt_tokens_details: { cached_tokens: 20 } };
+const rusage = { input_tokens: 50, output_tokens: 10, input_tokens_details: { cached_tokens: 20 }, output_tokens_details: { reasoning_tokens: 4 }, total_tokens: 60 };
+const reasoning = { type: 'reasoning', id: 'rs_1', summary: [], encrypted_content: 'enc' };
 
 describe('OpenAIModelClient', () => {
-  it('runs a harness turn: strict function tools in, tool calls out as tool_use blocks', async () => {
-    const { client, calls } = stub({ model: 'gpt-5.5', usage, choices: [{ finish_reason: 'tool_calls', message: { role: 'assistant', content: 'Looking at the catalog.', tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'get_evidence', arguments: '{"kind":"page","id":"https://shop.test/"}' } }] } }] });
+  it('runs a harness turn on the Responses API: strict function tools in, reasoning and tool calls out as blocks', async () => {
+    const { client, calls } = stub({ model: 'gpt-5.5', status: 'completed', incomplete_details: null, usage: rusage, output: [reasoning, { type: 'message', id: 'msg_1', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: 'Looking at the catalog.', annotations: [] }] }, { type: 'function_call', id: 'fc_1', call_id: 'call_1', name: 'get_evidence', arguments: '{"kind":"page","id":"https://shop.test/"}' }] });
     const model = new OpenAIModelClient({ client, modelId: 'gpt-5.5' });
     const tools = harnessTools(false);
     const response = await model.turn({
@@ -25,38 +28,37 @@ describe('OpenAIModelClient', () => {
       effort: 'medium',
       messages: [
         { role: 'user', content: [{ type: 'text', text: 'evidence', cache_control: { type: 'ephemeral' } }] },
-        { role: 'assistant', content: [{ type: 'tool_use', id: 'call_0', name: 'fetch_json', input: { url: 'https://shop.test/api' } }] },
-        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'call_0', content: '{"status":200}', is_error: false }] },
+        { role: 'assistant', content: [{ type: 'redacted_thinking', data: JSON.stringify(reasoning) }, { type: 'tool_use', id: 'call_0', name: 'fetch_json', input: { url: 'https://shop.test/api' } }] },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'call_0', content: 'out of scope', is_error: true }] },
       ],
     });
     expect(response).toMatchObject({ stopReason: 'tool_use', model: 'gpt-5.5', inputTokens: 50, outputTokens: 10, cacheReadTokens: 20 });
     expect(response.content).toEqual([
+      { type: 'redacted_thinking', data: JSON.stringify(reasoning) },
       { type: 'text', text: 'Looking at the catalog.', citations: null },
       { type: 'tool_use', id: 'call_1', name: 'get_evidence', input: { kind: 'page', id: 'https://shop.test/' } },
     ]);
     const req = calls[0]!;
-    expect(req['model']).toBe('gpt-5.5');
-    expect(req['max_completion_tokens']).toBe(1000);
-    expect(req['reasoning_effort']).toBe('medium');
-    expect(req['tool_choice']).toBe('auto');
-    const sent = req['tools'] as Array<{ type: string; function: { name: string; strict: boolean; parameters: { additionalProperties: boolean } } }>;
-    expect(sent.map((t) => t.function.name)).toEqual(tools.map((t) => t.name));
-    expect(sent.every((t) => t.type === 'function' && t.function.strict && t.function.parameters.additionalProperties === false)).toBe(true);
-    expect(req['messages']).toEqual([
-      { role: 'system', content: 'rules' },
+    expect(req).toMatchObject({ model: 'gpt-5.5', instructions: 'rules', max_output_tokens: 1000, tool_choice: 'auto', reasoning: { effort: 'medium' }, include: ['reasoning.encrypted_content'], store: false });
+    const sent = req['tools'] as Array<{ type: string; name: string; strict: boolean; parameters: { additionalProperties: boolean } }>;
+    expect(sent.map((t) => t.name)).toEqual(tools.map((t) => t.name));
+    expect(sent.every((t) => t.type === 'function' && t.strict && t.parameters.additionalProperties === false)).toBe(true);
+    expect(req['input']).toEqual([
       { role: 'user', content: 'evidence' },
-      { role: 'assistant', content: null, tool_calls: [{ id: 'call_0', type: 'function', function: { name: 'fetch_json', arguments: '{"url":"https://shop.test/api"}' } }] },
-      { role: 'tool', tool_call_id: 'call_0', content: '{"status":200}' },
+      reasoning,
+      { type: 'function_call', call_id: 'call_0', name: 'fetch_json', arguments: '{"url":"https://shop.test/api"}' },
+      { type: 'function_call_output', call_id: 'call_0', output: 'ERROR: out of scope' },
     ]);
   });
 
-  it('maps length and content-filter stops to errors and a plain stop to end_turn', async () => {
-    const stop = new OpenAIModelClient({ client: stub({ model: 'm', usage, choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: 'done' } }] }).client });
+  it('maps truncation and refusals to errors and a plain completion to end_turn', async () => {
+    const stop = new OpenAIModelClient({ client: stub({ model: 'm', status: 'completed', incomplete_details: null, usage: rusage, output: [{ type: 'message', id: 'm1', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: 'done', annotations: [] }] }] }).client });
     expect(await stop.turn({ system: 's', tools: [], maxTokens: 10, messages: [{ role: 'user', content: 'x' }] })).toMatchObject({ stopReason: 'end_turn', content: [{ type: 'text', text: 'done' }] });
-    const long = new OpenAIModelClient({ client: stub({ model: 'm', usage, choices: [{ finish_reason: 'length', message: { role: 'assistant', content: 'tru' } }] }).client });
+    const long = new OpenAIModelClient({ client: stub({ model: 'm', status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' }, usage: rusage, output: [] }).client });
     expect((await long.turn({ system: 's', tools: [], maxTokens: 10, messages: [{ role: 'user', content: 'x' }] })).error).toContain('max_tokens');
-    const refused = new OpenAIModelClient({ client: stub({ model: 'm', usage, choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: null, refusal: 'no' } }] }).client });
+    const refused = new OpenAIModelClient({ client: stub({ model: 'm', status: 'completed', incomplete_details: null, usage: rusage, output: [{ type: 'message', id: 'm1', role: 'assistant', status: 'completed', content: [{ type: 'refusal', refusal: 'no' }] }] }).client });
     expect((await refused.turn({ system: 's', tools: [], maxTokens: 10, messages: [{ role: 'user', content: 'x' }] })).error).toContain('declined');
+    expect(toResponseInput([{ role: 'user', content: 'hi' }])).toEqual([{ role: 'user', content: 'hi' }]);
   });
 
   it('completes schema-constrained JSON and validates it with zod', async () => {

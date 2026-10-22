@@ -57,36 +57,73 @@ export class OpenAIModelClient implements ModelClient {
     return { ...base, parsed: parsed.success ? parsed.data : null, ...(parsed.success ? {} : { error: 'response did not match the schema' }) };
   }
 
-  /** One harness turn with strict function tools. */
+  /**
+   * One harness turn on the Responses API: strict function tools with reasoning on. Reasoning items come
+   * back encrypted and ride along in the transcript as redacted thinking blocks, so later turns keep them.
+   */
   async turn(req: ChatTurnRequest): Promise<ChatTurnResponse> {
-    const response = await this.api().chat.completions.create({
+    const response = await this.api().responses.create({
       model: this.id,
-      max_completion_tokens: req.maxTokens,
-      messages: [{ role: 'system', content: req.system }, ...toOpenAIMessages(req.messages)],
-      tools: req.tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description ?? '', parameters: t.input_schema as Record<string, unknown>, strict: true } })),
+      instructions: req.system,
+      input: toResponseInput(req.messages),
+      tools: req.tools.map((t) => ({ type: 'function' as const, name: t.name, description: t.description ?? '', parameters: t.input_schema as Record<string, unknown>, strict: true })),
       tool_choice: 'auto',
-      ...(req.effort ? { reasoning_effort: req.effort } : {}),
+      max_output_tokens: req.maxTokens,
+      reasoning: { effort: req.effort ?? 'medium' },
+      include: ['reasoning.encrypted_content'],
+      store: false,
     });
-    const choice = response.choices[0];
-    const base = { model: response.model, inputTokens: response.usage?.prompt_tokens ?? 0, outputTokens: response.usage?.completion_tokens ?? 0, cacheReadTokens: response.usage?.prompt_tokens_details?.cached_tokens ?? 0 };
-    if (!choice) return { ...base, content: [], stopReason: 'unknown', error: 'no choices in the response' };
+    const base = { model: response.model, inputTokens: response.usage?.input_tokens ?? 0, outputTokens: response.usage?.output_tokens ?? 0, cacheReadTokens: response.usage?.input_tokens_details?.cached_tokens ?? 0 };
     const content: Anthropic.Beta.BetaContentBlock[] = [];
-    if (choice.message.content) content.push({ type: 'text', text: choice.message.content, citations: null });
-    for (const call of choice.message.tool_calls ?? []) {
-      if (call.type !== 'function') continue;
-      let input: unknown = {};
-      try {
-        input = JSON.parse(call.function.arguments || '{}');
-      } catch {
-        input = { __invalid_json: call.function.arguments };
+    let refusal: string | undefined;
+    for (const item of response.output) {
+      if (item.type === 'reasoning') content.push({ type: 'redacted_thinking', data: JSON.stringify(item) });
+      else if (item.type === 'message') {
+        for (const part of item.content) {
+          if (part.type === 'output_text') content.push({ type: 'text', text: part.text, citations: null });
+          else if (part.type === 'refusal') refusal = part.refusal;
+        }
+      } else if (item.type === 'function_call') {
+        let input: unknown = {};
+        try {
+          input = JSON.parse(item.arguments || '{}');
+        } catch {
+          input = { __invalid_json: item.arguments };
+        }
+        content.push({ type: 'tool_use', id: item.call_id, name: item.name, input });
       }
-      content.push({ type: 'tool_use', id: call.id, name: call.function.name, input });
     }
-    const stopReason = choice.finish_reason === 'tool_calls' || content.some((b) => b.type === 'tool_use') ? 'tool_use' : choice.finish_reason === 'stop' ? 'end_turn' : choice.finish_reason;
-    if (choice.finish_reason === 'length') return { ...base, content, stopReason: 'max_tokens', error: 'response truncated at max_tokens' };
-    if (choice.finish_reason === 'content_filter' || choice.message.refusal) return { ...base, content, stopReason: 'refusal', error: `model declined: ${choice.message.refusal ?? 'content filter'}` };
-    return { ...base, content, stopReason };
+    if (response.status === 'incomplete' && response.incomplete_details?.reason === 'max_output_tokens') return { ...base, content, stopReason: 'max_tokens', error: 'response truncated at max_tokens' };
+    if (refusal || response.incomplete_details?.reason === 'content_filter') return { ...base, content, stopReason: 'refusal', error: `model declined: ${refusal ?? 'content filter'}` };
+    if (response.status === 'failed') return { ...base, content, stopReason: 'failed', error: `response failed: ${response.error?.message ?? 'unknown'}` };
+    return { ...base, content, stopReason: content.some((b) => b.type === 'tool_use') ? 'tool_use' : 'end_turn' };
   }
+}
+
+/** Anthropic-shaped transcript (text, tool_use, tool_result, redacted reasoning) to Responses API input items. */
+export function toResponseInput(messages: Anthropic.Beta.BetaMessageParam[]): OpenAI.Responses.ResponseInputItem[] {
+  const out: OpenAI.Responses.ResponseInputItem[] = [];
+  for (const m of messages) {
+    if (typeof m.content === 'string') {
+      out.push({ role: m.role, content: m.content });
+      continue;
+    }
+    for (const block of m.content) {
+      if (block.type === 'text') out.push({ role: m.role, content: block.text });
+      else if (block.type === 'tool_result') {
+        const text = typeof block.content === 'string' ? block.content : JSON.stringify(block.content ?? '');
+        out.push({ type: 'function_call_output', call_id: block.tool_use_id, output: block.is_error ? `ERROR: ${text}` : text });
+      } else if (block.type === 'tool_use') out.push({ type: 'function_call', call_id: block.id, name: block.name, arguments: JSON.stringify(block.input ?? {}) });
+      else if (block.type === 'redacted_thinking') {
+        try {
+          out.push(JSON.parse(block.data) as OpenAI.Responses.ResponseReasoningItem);
+        } catch {
+          // not a reasoning item of ours; skip
+        }
+      }
+    }
+  }
+  return out;
 }
 
 /** JSON Schema for a zod type, without the meta key OpenAI rejects. */
