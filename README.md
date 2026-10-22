@@ -1,7 +1,7 @@
 <h1 align="center">WebMorph</h1>
 
 <p align="center">
-  Turn an authorized website into validated, read-only tools that AI agents can call without a browser.
+  Turn any website into validated, read-only tools and skills that AI agents can call without a browser.
 </p>
 
 <p align="center">
@@ -12,9 +12,9 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
 
-WebMorph is a discovery and capability-generation pipeline. Deterministic stages collect evidence about a site (robots and sitemaps, a sampled crawl, browser inspection, interaction probes, redacted network capture, documentation). A website model is built from that evidence, every read capability becomes a typed tool, each tool is validated by replay against the live site, and an operator publishes the ones that passed to agents over the Model Context Protocol.
+WebMorph is a discovery and capability-generation pipeline. Point it at a URL: deterministic stages collect evidence about the site (robots and sitemaps, a sampled crawl, browser inspection, interaction probes, redacted network capture, documentation). A website model is built from that evidence, every read capability becomes a typed tool, each tool is validated by replay against the live site, and an operator publishes the ones that passed to agents over the Model Context Protocol. A skill generator then composes a site's validated tools into a reusable skill an agent can load.
 
-It is not a crawler, a browser recorder, or an autonomous browser agent. Tools are data, not code; HTTP tools come first and browser tools are the fallback; nothing WebMorph observed is ever replayed on its own authority.
+It is not a crawler, a browser recorder, or an autonomous browser agent. Tools are data, not code; HTTP tools come first and browser tools are the fallback; the site's robots rules and rate limits are respected; nothing WebMorph observed is ever replayed on its own authority.
 
 ## How it works
 
@@ -27,7 +27,9 @@ Eleven stages, four groups. Each stage reads earlier artifacts and writes its ow
 
 ## What you get
 
-An agent integration is judged by the API surface it exposes, so WebMorph generates tools API first: the HTTP route carries the capability's name (`search_cars`, `get_car`), the browser route is the `_browser` fallback, and capabilities with no HTTP route are reported as gaps with a reason.
+Capabilities come in three layers. **Browser primitives** (navigate, fill, click, wait, extract) are implemented once by the runtime. **Website-specific tools** (`search_cars`, `get_car`) are discovered from the site, typed, validated and published. **Skills** compose a site's validated tools with guidance into a reusable bundle an agent loads as one unit.
+
+An agent integration is judged by the API surface it exposes, so WebMorph generates tools API first: the HTTP route carries the capability's name, the browser route is the `_browser` fallback, and capabilities with no HTTP route are reported as gaps with a reason.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/api-first.dark.svg">
@@ -81,6 +83,12 @@ MCP client configuration, for example in Claude Code:
 ```
 
 Artifacts land under `.webmorph/sites/<siteId>/jobs/<jobId>/artifacts/`. Add `--json` to `discover` for a machine-readable summary and `-v` to log every fetched page.
+
+## Skill generator
+
+A tool answers one question; a skill teaches an agent a site. The skill generator takes a site's published tools and produces a `SkillDefinition`: a `SKILL.md`-style guide that says what the site offers, which tool to call for which intent, how inputs relate (a search result's URL feeds the detail tool), what each error code means for that site, and worked examples drawn from the validation runs, together with the MCP server configuration that serves the tools. Like everything else WebMorph emits, a skill cites the evidence and the validated tools behind every statement and is regenerated, never hand-edited, when the site or its tools change.
+
+Status: the `SkillDefinition` artifact type is reserved and the three-layer model is in place; skill generation is the next stage on the [roadmap](docs/roadmap.md).
 
 ## Serving tools to agents
 
@@ -183,7 +191,7 @@ scripts/      diagram generator
 
 ## Status
 
-All seven planned phases are implemented and tested against the fixture site and live sites. What remains before a first release is measurement rather than features: a benchmark harness over a fixed site set, typed response schemas for JSON API tools, and scheduled revalidation to report replay stability over time. See [docs/roadmap.md](docs/roadmap.md).
+All seven planned phases are implemented and tested against the fixture site and live sites. Next: the skill generator (Layer 3), a benchmark harness over a fixed site set, typed response schemas for JSON API tools, and scheduled revalidation to report replay stability over time. See [docs/roadmap.md](docs/roadmap.md).
 
 ## License
 

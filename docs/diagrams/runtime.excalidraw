@@ -4,7 +4,7 @@
   "source": "https://github.com/AbdelhafzDev/webmorph/blob/main/scripts/diagrams/scenes.mjs",
   "elements": [
     {
-      "id": "wzWkz_-iOmtMVxjXQduA7",
+      "id": "jsQZNySRwvAQVZGGHPpl_",
       "type": "text",
       "x": 0,
       "y": 0,
@@ -22,12 +22,12 @@
       "frameId": null,
       "index": "a0",
       "roundness": null,
-      "seed": 136820326,
+      "seed": 1620499654,
       "version": 2,
-      "versionNonce": 2032013030,
+      "versionNonce": 927120710,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097532,
+      "updated": 1792658470264,
       "link": null,
       "locked": false,
       "text": "Serving tools: the agent call path",
@@ -61,21 +61,21 @@
       "roundness": {
         "type": 3
       },
-      "seed": 941738746,
+      "seed": 1046919834,
       "version": 3,
-      "versionNonce": 1914577082,
+      "versionNonce": 1514171482,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "vQYKTQuJW0bN-UGjQHI-R"
+          "id": "3x3cMiVpBigyhrfWLjwj5"
         },
         {
-          "id": "UGm4P1hgmZzPnT8B3SNGJ",
+          "id": "MGbMYlHGTT6M4l_-YVXXa",
           "type": "arrow"
         }
       ],
-      "updated": 1792655097532,
+      "updated": 1792658470265,
       "link": null,
       "locked": false
     },
@@ -100,25 +100,25 @@
       "roundness": {
         "type": 3
       },
-      "seed": 737147302,
+      "seed": 1282102278,
       "version": 4,
-      "versionNonce": 1199880762,
+      "versionNonce": 587242970,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "GctKoN4v-ilugWHlN2b8a"
+          "id": "IF_sqiwwMA8n6WTY5r_Fu"
         },
         {
-          "id": "UGm4P1hgmZzPnT8B3SNGJ",
+          "id": "MGbMYlHGTT6M4l_-YVXXa",
           "type": "arrow"
         },
         {
-          "id": "IttzDJbWKTH1z7JlfdRRu",
+          "id": "EjUSJdn2Ben17p2O-tsyD",
           "type": "arrow"
         }
       ],
-      "updated": 1792655097532,
+      "updated": 1792658470265,
       "link": null,
       "locked": false
     },
@@ -143,29 +143,29 @@
       "roundness": {
         "type": 3
       },
-      "seed": 1180851130,
+      "seed": 27809626,
       "version": 5,
-      "versionNonce": 1588332090,
+      "versionNonce": 605858266,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "l28OHUSLUQEvY0X_VdgAy"
+          "id": "HU6c4w_2tZut1g5SYvQfb"
         },
         {
-          "id": "IttzDJbWKTH1z7JlfdRRu",
+          "id": "EjUSJdn2Ben17p2O-tsyD",
           "type": "arrow"
         },
         {
-          "id": "I9KuCIjpcb8Nm5mGTCrsv",
+          "id": "6K32BB0IUS9dJ_t5zTEnL",
           "type": "arrow"
         },
         {
-          "id": "xoGKC15ddWHvpQ2CVMz3M",
+          "id": "_GD19UT_SU5H7fcP8CFRr",
           "type": "arrow"
         }
       ],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false
     },
@@ -190,33 +190,33 @@
       "roundness": {
         "type": 3
       },
-      "seed": 206427366,
+      "seed": 221176646,
       "version": 6,
-      "versionNonce": 1928806330,
+      "versionNonce": 1040939866,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "JnhjbnNs4XJ334ZcI16KR"
+          "id": "U08W3eKA2EOdY8uAQ_ycJ"
         },
         {
-          "id": "I9KuCIjpcb8Nm5mGTCrsv",
+          "id": "6K32BB0IUS9dJ_t5zTEnL",
           "type": "arrow"
         },
         {
-          "id": "UbtmYsY2PoKDpfbTA4nr4",
+          "id": "72KwywOGPOFfna360cCa4",
           "type": "arrow"
         },
         {
-          "id": "Sff8uw2xrbmh_zBs-dZJT",
+          "id": "j7ZDSsvV3NLocJduLs3T2",
           "type": "arrow"
         },
         {
-          "id": "Lu1RiBa1-1An-zjLF4GxS",
+          "id": "Eg6A4clhmL9McS00X1CP-",
           "type": "arrow"
         }
       ],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false
     },
@@ -241,25 +241,25 @@
       "roundness": {
         "type": 3
       },
-      "seed": 131257466,
+      "seed": 1276664858,
       "version": 4,
-      "versionNonce": 1637358010,
+      "versionNonce": 721024346,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "SJ1Y1gmDrUOKriNNy_s-Z"
+          "id": "T3XXpBI8nkEk1rtCGzCyB"
         },
         {
-          "id": "UbtmYsY2PoKDpfbTA4nr4",
+          "id": "72KwywOGPOFfna360cCa4",
           "type": "arrow"
         },
         {
-          "id": "NS46MFTxJiiNlB8QU1eXq",
+          "id": "AmFWOA_kMpNvvZ7dhfuDI",
           "type": "arrow"
         }
       ],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false
     },
@@ -284,25 +284,25 @@
       "roundness": {
         "type": 3
       },
-      "seed": 852379686,
+      "seed": 1698597510,
       "version": 4,
-      "versionNonce": 429159226,
+      "versionNonce": 397141722,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "wfQI4sz3WBOL7321v3Olx"
+          "id": "YwBmLiB7RlXyF81-n7FDi"
         },
         {
-          "id": "Sff8uw2xrbmh_zBs-dZJT",
+          "id": "j7ZDSsvV3NLocJduLs3T2",
           "type": "arrow"
         },
         {
-          "id": "iW5G5WZR5P3-LhS17JB-2",
+          "id": "2r5fzlNeiWxo9qKY_nVmX",
           "type": "arrow"
         }
       ],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false
     },
@@ -327,25 +327,25 @@
       "roundness": {
         "type": 3
       },
-      "seed": 1580610874,
+      "seed": 2074724570,
       "version": 4,
-      "versionNonce": 1809185786,
+      "versionNonce": 167639962,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "Pt826JpU3BLGgLBwE_vh3"
+          "id": "YZhvpbevpmMYjEVzYip-S"
         },
         {
-          "id": "NS46MFTxJiiNlB8QU1eXq",
+          "id": "AmFWOA_kMpNvvZ7dhfuDI",
           "type": "arrow"
         },
         {
-          "id": "iW5G5WZR5P3-LhS17JB-2",
+          "id": "2r5fzlNeiWxo9qKY_nVmX",
           "type": "arrow"
         }
       ],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false
     },
@@ -370,21 +370,21 @@
       "roundness": {
         "type": 3
       },
-      "seed": 1868452710,
+      "seed": 1129793990,
       "version": 3,
-      "versionNonce": 250529146,
+      "versionNonce": 2039700762,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "wS6Pwdt7Y-hkIOaO9HLua"
+          "id": "8o6Hmo7S4vsuZyjkwoyQg"
         },
         {
-          "id": "xoGKC15ddWHvpQ2CVMz3M",
+          "id": "_GD19UT_SU5H7fcP8CFRr",
           "type": "arrow"
         }
       ],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false
     },
@@ -409,26 +409,26 @@
       "roundness": {
         "type": 3
       },
-      "seed": 2062515706,
+      "seed": 938450330,
       "version": 3,
-      "versionNonce": 1854091002,
+      "versionNonce": 1902010010,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "Z8ut0wZs60VS3ZPnh3Ju5"
+          "id": "kWVs8ruROj4e1m0PjppR0"
         },
         {
-          "id": "Lu1RiBa1-1An-zjLF4GxS",
+          "id": "Eg6A4clhmL9McS00X1CP-",
           "type": "arrow"
         }
       ],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false
     },
     {
-      "id": "UGm4P1hgmZzPnT8B3SNGJ",
+      "id": "MGbMYlHGTT6M4l_-YVXXa",
       "type": "arrow",
       "x": 260.5,
       "y": 160,
@@ -446,12 +446,12 @@
       "frameId": null,
       "index": "aA",
       "roundness": null,
-      "seed": 206239398,
+      "seed": 915808518,
       "version": 4,
-      "versionNonce": 1591533542,
+      "versionNonce": 965647942,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097532,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "points": [
@@ -480,7 +480,7 @@
       "elbowed": false
     },
     {
-      "id": "IttzDJbWKTH1z7JlfdRRu",
+      "id": "EjUSJdn2Ben17p2O-tsyD",
       "type": "arrow",
       "x": 580.5,
       "y": 160,
@@ -498,12 +498,12 @@
       "frameId": null,
       "index": "aB",
       "roundness": null,
-      "seed": 1795272378,
+      "seed": 1042078298,
       "version": 4,
-      "versionNonce": 1810275942,
+      "versionNonce": 21251270,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097532,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "points": [
@@ -532,7 +532,7 @@
       "elbowed": false
     },
     {
-      "id": "I9KuCIjpcb8Nm5mGTCrsv",
+      "id": "6K32BB0IUS9dJ_t5zTEnL",
       "type": "arrow",
       "x": 960.5,
       "y": 160,
@@ -550,12 +550,12 @@
       "frameId": null,
       "index": "aC",
       "roundness": null,
-      "seed": 37827046,
+      "seed": 1652035654,
       "version": 4,
-      "versionNonce": 1802681574,
+      "versionNonce": 530729798,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097532,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "points": [
@@ -584,7 +584,7 @@
       "elbowed": false
     },
     {
-      "id": "UbtmYsY2PoKDpfbTA4nr4",
+      "id": "72KwywOGPOFfna360cCa4",
       "type": "arrow",
       "x": 1175,
       "y": 220.5,
@@ -602,17 +602,17 @@
       "frameId": null,
       "index": "aD",
       "roundness": null,
-      "seed": 588236666,
+      "seed": 755269402,
       "version": 4,
-      "versionNonce": 867753638,
+      "versionNonce": 904038662,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "xClBSLm5l3UtP03md9qOL"
+          "id": "E8WKvMBM2Uxj7WPG0fVya"
         }
       ],
-      "updated": 1792655097532,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "points": [
@@ -641,7 +641,7 @@
       "elbowed": false
     },
     {
-      "id": "Sff8uw2xrbmh_zBs-dZJT",
+      "id": "j7ZDSsvV3NLocJduLs3T2",
       "type": "arrow",
       "x": 1309.5,
       "y": 160,
@@ -659,17 +659,17 @@
       "frameId": null,
       "index": "aE",
       "roundness": null,
-      "seed": 743310630,
+      "seed": 1926895494,
       "version": 4,
-      "versionNonce": 70604902,
+      "versionNonce": 515808966,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "pWYle3tVyDeF0Kwmo0KGU"
+          "id": "4Y8pRvLj1eFHVQuWjRTQq"
         }
       ],
-      "updated": 1792655097532,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "points": [
@@ -706,7 +706,7 @@
       "elbowed": false
     },
     {
-      "id": "NS46MFTxJiiNlB8QU1eXq",
+      "id": "AmFWOA_kMpNvvZ7dhfuDI",
       "type": "arrow",
       "x": 1310.5,
       "y": 365.5,
@@ -724,12 +724,12 @@
       "frameId": null,
       "index": "aF",
       "roundness": null,
-      "seed": 190629946,
+      "seed": 1360628698,
       "version": 4,
-      "versionNonce": 920319718,
+      "versionNonce": 298722630,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "points": [
@@ -758,7 +758,7 @@
       "elbowed": false
     },
     {
-      "id": "iW5G5WZR5P3-LhS17JB-2",
+      "id": "2r5fzlNeiWxo9qKY_nVmX",
       "type": "arrow",
       "x": 1310.5,
       "y": 504.5,
@@ -776,12 +776,12 @@
       "frameId": null,
       "index": "aG",
       "roundness": null,
-      "seed": 2078175334,
+      "seed": 267990726,
       "version": 4,
-      "versionNonce": 1317729638,
+      "versionNonce": 1989020614,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "points": [
@@ -810,7 +810,7 @@
       "elbowed": false
     },
     {
-      "id": "xoGKC15ddWHvpQ2CVMz3M",
+      "id": "_GD19UT_SU5H7fcP8CFRr",
       "type": "arrow",
       "x": 805,
       "y": 319.5,
@@ -828,17 +828,17 @@
       "frameId": null,
       "index": "aH",
       "roundness": null,
-      "seed": 197898490,
+      "seed": 1886322842,
       "version": 4,
-      "versionNonce": 811984678,
+      "versionNonce": 565188998,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "r_W3Z6N5lttB6HhxqY3fs"
+          "id": "MJrzDEH_2emWhljD9N10q"
         }
       ],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "points": [
@@ -867,7 +867,7 @@
       "elbowed": false
     },
     {
-      "id": "Lu1RiBa1-1An-zjLF4GxS",
+      "id": "Eg6A4clhmL9McS00X1CP-",
       "type": "arrow",
       "x": 960,
       "y": 524.5,
@@ -885,12 +885,12 @@
       "frameId": null,
       "index": "aI",
       "roundness": null,
-      "seed": 750744486,
+      "seed": 1383230982,
       "version": 4,
-      "versionNonce": 298243494,
+      "versionNonce": 556789766,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "points": [
@@ -931,7 +931,7 @@
       "elbowed": false
     },
     {
-      "id": "CJJl6POa6mp9dQgnLYX5K",
+      "id": "sFG48eCtImFTpGf-_LaAr",
       "type": "rectangle",
       "x": 40,
       "y": 320,
@@ -951,22 +951,22 @@
       "roundness": {
         "type": 3
       },
-      "seed": 400523706,
+      "seed": 381148506,
       "version": 2,
-      "versionNonce": 629637434,
+      "versionNonce": 1871697114,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "QZlgun8bY6FkHqoHjbEpp"
+          "id": "TnCPNNzA22PBGMFTCC15Y"
         }
       ],
-      "updated": 1792655097532,
+      "updated": 1792658470264,
       "link": null,
       "locked": false
     },
     {
-      "id": "vQYKTQuJW0bN-UGjQHI-R",
+      "id": "3x3cMiVpBigyhrfWLjwj5",
       "type": "text",
       "x": 80.79638671875,
       "y": 125,
@@ -984,12 +984,12 @@
       "frameId": null,
       "index": "aK",
       "roundness": null,
-      "seed": 2039990118,
+      "seed": 1906834886,
       "version": 3,
-      "versionNonce": 1033774118,
+      "versionNonce": 1317807750,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "Agent\nany MCP client\n(Claude Code, your app)\ntools/list · tools/call",
@@ -1003,7 +1003,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "GctKoN4v-ilugWHlN2b8a",
+      "id": "IF_sqiwwMA8n6WTY5r_Fu",
       "type": "text",
       "x": 369.255859375,
       "y": 127.5,
@@ -1021,12 +1021,12 @@
       "frameId": null,
       "index": "aL",
       "roundness": null,
-      "seed": 2000022182,
+      "seed": 1085297926,
       "version": 3,
-      "versionNonce": 232921402,
+      "versionNonce": 1284762842,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "MCP server (stdio)\nlists published tools, HTTP first,\nwith JSON Schema in/out and\nreadOnlyHint; structuredContent",
@@ -1040,7 +1040,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "l28OHUSLUQEvY0X_VdgAy",
+      "id": "HU6c4w_2tZut1g5SYvQfb",
       "type": "text",
       "x": 707.1318359375,
       "y": 119.375,
@@ -1058,12 +1058,12 @@
       "frameId": null,
       "index": "aM",
       "roundness": null,
-      "seed": 1001235942,
+      "seed": 321635398,
       "version": 3,
-      "versionNonce": 1272098662,
+      "versionNonce": 1754359238,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "ToolExecutor\npublished? read-only? session-free?\nnot degraded? · per-site concurrency ·\ntimeout · call statistics · degrade\nafter 2 consecutive site failures",
@@ -1077,7 +1077,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "JnhjbnNs4XJ334ZcI16KR",
+      "id": "U08W3eKA2EOdY8uAQ_ycJ",
       "type": "text",
       "x": 1063.5478515625,
       "y": 127.5,
@@ -1095,12 +1095,12 @@
       "frameId": null,
       "index": "aN",
       "roundness": null,
-      "seed": 1745615142,
+      "seed": 989285254,
       "version": 3,
-      "versionNonce": 327082490,
+      "versionNonce": 804602266,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "Interpreter\ndeclarative steps, never code;\ntyped error codes\n(INPUT_INVALID … SITE_CHANGED)",
@@ -1114,7 +1114,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "SJ1Y1gmDrUOKriNNy_s-Z",
+      "id": "T3XXpBI8nkEk1rtCGzCyB",
       "type": "text",
       "x": 1101.713134765625,
       "y": 340.625,
@@ -1132,12 +1132,12 @@
       "frameId": null,
       "index": "aO",
       "roundness": null,
-      "seed": 1941824614,
+      "seed": 1179642566,
       "version": 3,
-      "versionNonce": 299094694,
+      "versionNonce": 1714208006,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "SafeHttpClient\nno browser; the same policy\nas discovery",
@@ -1151,7 +1151,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "wfQI4sz3WBOL7321v3Olx",
+      "id": "YwBmLiB7RlXyF81-n7FDi",
       "type": "text",
       "x": 1113.081787109375,
       "y": 480.625,
@@ -1169,12 +1169,12 @@
       "frameId": null,
       "index": "aP",
       "roundness": null,
-      "seed": 1620076454,
+      "seed": 1943183878,
       "version": 3,
-      "versionNonce": 67408570,
+      "versionNonce": 1842216538,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "BrowserRuntime\nfresh context per call,\nbehind the policy proxy",
@@ -1188,7 +1188,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "Pt826JpU3BLGgLBwE_vh3",
+      "id": "YZhvpbevpmMYjEVzYip-S",
       "type": "text",
       "x": 1501.125,
       "y": 415,
@@ -1206,12 +1206,12 @@
       "frameId": null,
       "index": "aQ",
       "roundness": null,
-      "seed": 1857061606,
+      "seed": 645689670,
       "version": 3,
-      "versionNonce": 441355750,
+      "versionNonce": 484125766,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "The website",
@@ -1225,7 +1225,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "wS6Pwdt7Y-hkIOaO9HLua",
+      "id": "8o6Hmo7S4vsuZyjkwoyQg",
       "type": "text",
       "x": 703.726318359375,
       "y": 342.5,
@@ -1243,12 +1243,12 @@
       "frameId": null,
       "index": "aR",
       "roundness": null,
-      "seed": 1353397798,
+      "seed": 1504336006,
       "version": 3,
-      "versionNonce": 1645620090,
+      "versionNonce": 317793050,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "registry.json (mutable, per site)\nsnapshot of each published tool pinned\nto the job and artifact IDs it was\nvalidated against; status history; stats",
@@ -1262,7 +1262,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "Z8ut0wZs60VS3ZPnh3Ju5",
+      "id": "kWVs8ruROj4e1m0PjppR0",
       "type": "text",
       "x": 710.94677734375,
       "y": 492.5,
@@ -1280,12 +1280,12 @@
       "frameId": null,
       "index": "aS",
       "roundness": null,
-      "seed": 1601012070,
+      "seed": 353982406,
       "version": 3,
-      "versionNonce": 307224870,
+      "versionNonce": 712618886,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "config.json (mutable, per site, 0600)\noperator-configured credentials,\nresolved by name at run time; never\nstored in artifacts, evidence or logs",
@@ -1299,7 +1299,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "xClBSLm5l3UtP03md9qOL",
+      "id": "E8WKvMBM2Uxj7WPG0fVya",
       "type": "text",
       "x": 1150.26318359375,
       "y": 261.875,
@@ -1317,12 +1317,12 @@
       "frameId": null,
       "index": "aT",
       "roundness": null,
-      "seed": 756428838,
+      "seed": 621081222,
       "version": 3,
-      "versionNonce": 1677110330,
+      "versionNonce": 433172442,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "http steps",
@@ -1330,13 +1330,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "UbtmYsY2PoKDpfbTA4nr4",
+      "containerId": "72KwywOGPOFfna360cCa4",
       "originalText": "http steps",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "pWYle3tVyDeF0Kwmo0KGU",
+      "id": "4Y8pRvLj1eFHVQuWjRTQq",
       "type": "text",
       "x": 1334.437255859375,
       "y": 324.375,
@@ -1354,12 +1354,12 @@
       "frameId": null,
       "index": "aU",
       "roundness": null,
-      "seed": 1404180966,
+      "seed": 200767558,
       "version": 3,
-      "versionNonce": 2101660774,
+      "versionNonce": 1766150854,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "browser steps",
@@ -1367,13 +1367,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "Sff8uw2xrbmh_zBs-dZJT",
+      "containerId": "j7ZDSsvV3NLocJduLs3T2",
       "originalText": "browser steps",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "r_W3Z6N5lttB6HhxqY3fs",
+      "id": "MJrzDEH_2emWhljD9N10q",
       "type": "text",
       "x": 788.753173828125,
       "y": 271.875,
@@ -1391,12 +1391,12 @@
       "frameId": null,
       "index": "aV",
       "roundness": null,
-      "seed": 1637046438,
+      "seed": 430220038,
       "version": 3,
-      "versionNonce": 2139690234,
+      "versionNonce": 914531482,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "policy",
@@ -1404,13 +1404,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "xoGKC15ddWHvpQ2CVMz3M",
+      "containerId": "_GD19UT_SU5H7fcP8CFRr",
       "originalText": "policy",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "QZlgun8bY6FkHqoHjbEpp",
+      "id": "TnCPNNzA22PBGMFTCC15Y",
       "type": "text",
       "x": 45,
       "y": 354.375,
@@ -1428,12 +1428,12 @@
       "frameId": null,
       "index": "aW",
       "roundness": null,
-      "seed": 1256796390,
+      "seed": 385875782,
       "version": 3,
-      "versionNonce": 1761234854,
+      "versionNonce": 1675299334,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792655097533,
+      "updated": 1792658470265,
       "link": null,
       "locked": false,
       "text": "Results carry a run record: per-step status, the extracted output validated\nagainst the output schema, the final URL. Failures carry a code an agent can\nact on. After two consecutive site-change failures a tool is degraded and\nrefused with TOOL_UNAVAILABLE until an operator revalidates it; agents\nnever retry blindly against a changed site.",
@@ -1441,7 +1441,7 @@
       "fontFamily": 5,
       "textAlign": "left",
       "verticalAlign": "middle",
-      "containerId": "CJJl6POa6mp9dQgnLYX5K",
+      "containerId": "sFG48eCtImFTpGf-_LaAr",
       "originalText": "Results carry a run record: per-step status, the extracted output validated\nagainst the output schema, the final URL. Failures carry a code an agent can\nact on. After two consecutive site-change failures a tool is degraded and\nrefused with TOOL_UNAVAILABLE until an operator revalidates it; agents\nnever retry blindly against a changed site.",
       "autoResize": true,
       "lineHeight": 1.25

@@ -1,7 +1,7 @@
 {
   "name": "webmorph",
   "version": "0.1.0",
-  "description": "Turn authorized websites into inspectable, validated capabilities for AI agents.",
+  "description": "Turn any website into validated tools and skills for AI agents: evidence-first discovery, API-first tool generation, replay validation, MCP.",
   "type": "module",
   "license": "MIT",
   "private": true,

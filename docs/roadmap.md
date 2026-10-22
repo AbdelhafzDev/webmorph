@@ -14,6 +14,7 @@ Decisions that the plan left open are recorded in [decisions.md](decisions.md).
 | 5 | Documentation discovery and network evidence | Stages 1, 7 | Done |
 | 6 | Recording (Mode A) and workflows | Section 6, Stage 9 | Done |
 | 7 | Studio (review UI) | Section 3 | Done |
+| 8 | Skill generator (Layer 3) | Section 8 | Next |
 
 ## Phase 0: Foundations
 
@@ -87,3 +88,17 @@ Delivered: a recorder on top of the policed browser runtime with in-page instrum
 - Review UI over the artifact store: pages, templates, evidence, candidate tools, approve and publish.
 
 Delivered: `StudioServer` with a JSON API over sites, jobs, artifacts, evidence logs, blobs, recordings and the registry, plus write endpoints for publishing, status changes, tool calls, revalidation and discovery runs with live logs; a single-document UI with tabs for overview, pages, inspection, probes, docs, model, tools, workflows, recordings and registry, a try-it form built from each tool's input schema, and a discover form. Loopback only, no authentication, data rendered through DOM APIs only. Known gaps: no multi-user review or audit trail beyond the registry history, no editing of generated tools, and no diff view between jobs.
+
+## Phase 8: Skill generator
+
+The third capability layer of the plan: compose a site's published tools into a reusable skill.
+
+- A `SkillDefinition` artifact per site (the type is already reserved in the artifact enum), generated from the registry and the validation report: purpose and entities of the site, the published tools grouped by intent (find, list, look up), how one tool's output feeds another (a result URL or identifier into the detail tool), the meaning of each error code on this site, worked examples taken from validation runs, and the MCP server configuration that serves the tools.
+- Rendered as a `SKILL.md` bundle an agent can load as one unit, with the tool schemas beside it; every statement cites the tools and evidence behind it, and the bundle is regenerated, never hand-edited, when tools are republished or degraded.
+- Published through the registry like tools, so an operator approves a skill before agents see it, and served by the MCP server as a resource beside the tools.
+
+Acceptance: the fixture site yields a skill that names its search, list and detail tools with the result-to-detail hand-off, and an agent following only the skill completes a search-then-detail task against the fixture.
+
+## Measurement before a release
+
+Independent of the phases above: a benchmark harness over a fixed set of fixture and live sites reporting capabilities found, HTTP routes validated, gaps by reason, latency percentiles and cost per run; typed response schemas for JSON API tools; scheduled revalidation to report replay stability over time.

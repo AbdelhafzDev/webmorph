@@ -2,6 +2,12 @@
 
 How WebMorph turns a website into validated tools, stage by stage. The diagrams are Excalidraw files under [diagrams/](diagrams/); open any `.excalidraw` at [excalidraw.com](https://excalidraw.com) to edit it, or run `pnpm diagrams` to regenerate the SVGs from [`scripts/diagrams/scenes.mjs`](../scripts/diagrams/scenes.mjs). Decisions behind the design are numbered in [decisions.md](decisions.md); the phase history is in [roadmap.md](roadmap.md).
 
+## Three layers of capability
+
+1. **Browser primitives.** Navigate, read page state, locate, click, fill, select, wait, extract. Implemented once by the runtime (`src/tools/interpreter.ts`), never regenerated per site.
+2. **Website-specific tools.** Typed actions discovered from the site (`search_cars(query)`, `get_car(slug)`), each with input and output schemas, preconditions, execution strategy, expected result, error cases, evidence references and a validation status. This is what the pipeline below produces and what the MCP server serves.
+3. **Skills.** Reusable bundles that compose a site's validated tools with guidance for an agent: what the site offers, which tool serves which intent, how one tool's output feeds another, what the error codes mean on that site, and worked examples from the validation runs, plus the MCP configuration. A skill cites the tools and evidence behind every statement and is regenerated when they change. The `SkillDefinition` artifact type is reserved; the skill generator is the next stage on the roadmap.
+
 ## Principles
 
 - **Evidence first.** Every capability, fact and hypothesis in the website model cites the artifacts that justify it. Mechanics (URLs, parameters, locators, side-effect class, auth requirement) come only from evidence; a language model may add descriptions and cited hypotheses, never mechanics (D13).

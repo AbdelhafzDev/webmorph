@@ -223,7 +223,7 @@ function safety() {
   s.box('dns', 790, 70, 310, 190, 'Pinned DNS lookup\nresolve through WebMorph\'s resolver,\nrefuse private and reserved ranges\n(IPv4, IPv6, mapped, NAT64),\ndial the address that was checked', { color: COLORS.violet });
   s.box('proxy', 790, 310, 310, 190, 'Policy proxy (per connection)\nresolve and pin every host, including\nredirect targets and subresources;\nrebinding cannot change the verdict;\nmetadata and link-local refused', { color: COLORS.violet });
 
-  s.box('site', 1180, 210, 200, 150, 'The website\n(authorized target)', { color: COLORS.yellow, fontSize: 16 });
+  s.box('site', 1180, 210, 200, 150, 'Any website\n(public site, read-only)', { color: COLORS.yellow, fontSize: 16 });
 
   s.arrow('stages', 'http');
   s.arrow('http', 'dns');
