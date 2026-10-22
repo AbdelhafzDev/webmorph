@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { discover } from '../src/index.js';
 import { FakeChatClient, type ChatTurnRequest, type ScriptedTurn } from '../src/model/llm.js';
-import { harnessTools } from '../src/model/agent.js';
+import { elideOldResults, harnessTools, tokensSpent } from '../src/model/agent.js';
 import { ToolDefinition, ValidationReport, WebsiteModel } from '../src/schemas/index.js';
 import { startFixtureSite, type FixtureSite } from './fixtures/server.js';
 
@@ -39,6 +39,31 @@ describe('harness tools', () => {
       expect(t.input_schema.additionalProperties).toBe(false);
       expect(t.input_schema.required).toEqual(Object.keys(t.input_schema.properties as object));
     }
+  });
+});
+
+describe('harness token economy', () => {
+  it('counts cache reads at a tenth of their tokens', () => {
+    expect(tokensSpent({ inputTokens: 1000, outputTokens: 200, cacheReadTokens: 50_000 })).toBe(6200);
+  });
+
+  it('cuts long results older than the last rounds, never the evidence payload, without mutating sent messages', () => {
+    const long = 'x'.repeat(5000);
+    const round = (id: string) => ({ role: 'user' as const, content: [{ type: 'tool_result' as const, tool_use_id: id, content: long }] });
+    const reply = { role: 'assistant' as const, content: [{ type: 'text' as const, text: 'ok' }] };
+    const first = { role: 'user' as const, content: [{ type: 'text' as const, text: long }] };
+    const messages = [first, reply, round('a'), reply, round('b'), reply, round('c')];
+    const before = messages[2];
+    elideOldResults(messages, 2);
+    const text = (i: number) => ((messages[i]!.content as Array<{ content?: string; text?: string }>)[0]!.content ?? (messages[i]!.content as Array<{ text: string }>)[0]!.text);
+    expect(text(0)).toHaveLength(5000);
+    expect(text(2)).toMatch(/^x{400}…\[older result elided/);
+    expect(text(4)).toHaveLength(5000);
+    expect(text(6)).toHaveLength(5000);
+    expect((before!.content[0] as { content: string }).content).toHaveLength(5000);
+    elideOldResults(messages, 2);
+    expect(text(2)).toMatch(/elided/);
+    expect(text(2).length).toBeLessThan(600);
   });
 });
 

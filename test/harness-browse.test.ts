@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { discover } from '../src/index.js';
 import { FakeChatClient, type ChatTurnRequest, type ScriptedTurn } from '../src/model/llm.js';
-import { ToolDefinition, ValidationReport, WebsiteModel } from '../src/schemas/index.js';
+import { ApiCandidates, ToolDefinition, ValidationReport, WebsiteModel } from '../src/schemas/index.js';
 import { startFixtureSite, type FixtureSite } from './fixtures/server.js';
 
 let site: FixtureSite;
@@ -95,6 +95,9 @@ describe('the harness drives the browser (D27)', () => {
     expect((JSON.parse(act3[1]!.text) as Summary).headings).toContain('3 trips');
     expect(site.buys).toEqual([]);
 
+    // Static front-end files (a translation file here) never become API candidates.
+    const candidates = (await store.readArtifact(siteId, jobId, 'ApiCandidates', ApiCandidates)).data.candidates;
+    expect(candidates.some((c) => c.urlTemplate.includes('/assets/'))).toBe(false);
     const model = (await store.readArtifact(siteId, jobId, 'WebsiteModel', WebsiteModel)).data;
     const agent = model.agent!;
     expect(agent).toMatchObject({ finished: true, turns: 7 });

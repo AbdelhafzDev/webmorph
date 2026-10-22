@@ -73,7 +73,9 @@ export class OpenAIModelClient implements ModelClient {
       include: ['reasoning.encrypted_content'],
       store: false,
     });
-    const base = { model: response.model, inputTokens: response.usage?.input_tokens ?? 0, outputTokens: response.usage?.output_tokens ?? 0, cacheReadTokens: response.usage?.input_tokens_details?.cached_tokens ?? 0 };
+    // OpenAI counts cached tokens inside input_tokens; report them apart, as the Anthropic client does.
+    const cached = response.usage?.input_tokens_details?.cached_tokens ?? 0;
+    const base = { model: response.model, inputTokens: Math.max(0, (response.usage?.input_tokens ?? 0) - cached), outputTokens: response.usage?.output_tokens ?? 0, cacheReadTokens: cached };
     const content: Anthropic.Beta.BetaContentBlock[] = [];
     let refusal: string | undefined;
     for (const item of response.output) {

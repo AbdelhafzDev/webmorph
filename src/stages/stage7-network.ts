@@ -8,7 +8,7 @@ import { HEADER_ALLOWLIST, QUERY_DENYLIST, hasAuthCookie } from '../net/redact.j
 import { findCredentialFor } from '../schemas/siteConfig.js';
 import { matchesDocumentedPath } from '../docs/openapi.js';
 import { classifySegment } from '../html/templates.js';
-import { sameSite, hostnameOf } from '../net/url.js';
+import { sameSite, hostnameOf, STATIC_ASSET_PATH } from '../net/url.js';
 import { makeEnvelope, refTo, type DiscoveryInput } from './shared.js';
 import type { ArtifactRef } from '../schemas/common.js';
 
@@ -86,6 +86,8 @@ export const stage7Network: StageDefinition<DiscoveryInput> = {
       } catch {
         continue;
       }
+      // A front end's translation files and other static assets are not the site's API.
+      if (STATIC_ASSET_PATH.test(u.pathname)) continue;
       const segments = u.pathname.split('/').filter(Boolean).map(classifySegment);
       const pathPattern = '/' + segments.join('/');
       const gql = r.graphql?.[0];

@@ -32,7 +32,7 @@ describe('OpenAIModelClient', () => {
         { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'call_0', content: 'out of scope', is_error: true }] },
       ],
     });
-    expect(response).toMatchObject({ stopReason: 'tool_use', model: 'gpt-5.5', inputTokens: 50, outputTokens: 10, cacheReadTokens: 20 });
+    expect(response).toMatchObject({ stopReason: 'tool_use', model: 'gpt-5.5', inputTokens: 30, outputTokens: 10, cacheReadTokens: 20 });
     expect(response.content).toEqual([
       { type: 'redacted_thinking', data: JSON.stringify(reasoning) },
       { type: 'text', text: 'Looking at the catalog.', citations: null },

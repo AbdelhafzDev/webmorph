@@ -304,6 +304,9 @@ fetch('/api/events/digest', { headers: { accept: 'application/json', authorizati
       }
       case '/api/wishlist':
         return send(req.method === 'POST' ? 201 : 405, 'application/json', '{"ok":true}');
+      case '/framed':
+        // A page whose booking form lives in an iframe, as on sites that embed their ticketing app.
+        return html(200, page(base, 'Framed', '<h1>Book a trip</h1><iframe src="/app" width="600" height="400" title="Trip finder"></iframe>'));
       case '/app':
         // A single-page app, unlinked from the rest of the site: it logs in as a guest with a POST on load (like a
         // real booking app), renders nothing without that session, then offers a custom dropdown and a Find button
@@ -311,6 +314,7 @@ fetch('/api/events/digest', { headers: { accept: 'application/json', authorizati
         return html(200, `<!doctype html><html lang="en"><head><title>Trip finder</title></head><body><div id="root"><p>Loading…</p></div>
 <script>
 (async function () {
+  await fetch('/assets/i18n/en.json').catch(function () { return null; });
   var session = await fetch('/api/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: 'guest', password: 'guest-public', clientKey: 'web' }) }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   if (!session) return;
   var root = document.getElementById('root');
@@ -326,6 +330,8 @@ fetch('/api/events/digest', { headers: { accept: 'application/json', authorizati
   document.getElementById('buy').addEventListener('click', function () { fetch('/api/buy', { method: 'POST', body: '{}' }); });
 })();
 </script></body></html>`);
+      case '/assets/i18n/en.json':
+        return send(200, 'application/json', '{"find":"Find trips","category":"Category"}');
       case '/api/session':
         if (req.method !== 'POST') return send(405, 'application/json', '{"error":"POST only"}');
         return send(200, 'application/json', '{"token":"guest-token"}');

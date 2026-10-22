@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BrowserRuntime } from '../src/browser/runtime.js';
-import { BrowseSession, BrowseRefusal, browseToolDefinitions, type WorkflowProposal } from '../src/model/browse.js';
+import { BrowseSession, BrowseRefusal, browseToolDefinitions, summarizeRequests, type WorkflowProposal } from '../src/model/browse.js';
+import type { NetworkRecord } from '../src/schemas/networkEvidence.js';
 import { generateProgramTool } from '../src/tools/generateProgram.js';
 import { executeTool } from '../src/tools/interpreter.js';
 import { ScopePolicy } from '../src/net/scope.js';
@@ -30,6 +31,9 @@ describe('the model drives the browser (D27)', () => {
     try {
       const s0 = await session.open(`${site.baseUrl}/app`);
       expect(s0.title).toBe('Trip finder');
+      // The front end's translation file is counted, not listed.
+      expect(s0.requests.some((r) => r.url.includes('/assets/'))).toBe(false);
+      expect(s0.otherRequests).toBeGreaterThanOrEqual(1);
       expect(s0.requests).toContainEqual(expect.objectContaining({ method: 'POST', url: expect.stringContaining('/api/session'), status: 200, allowedAs: 'app-request', bodyKeys: ['username', 'password', 'clientKey'] }));
       const catBtn = s0.elements.find((e) => e.name?.startsWith('Category'))!;
       expect(catBtn).toBeDefined();
@@ -102,6 +106,40 @@ describe('the model drives the browser (D27)', () => {
     }
     expect(site.buys).toEqual([]);
   }, 120_000);
+
+  it('lists embedded frames so the model can open a form that lives in one', async () => {
+    const session = new BrowseSession(runtime, options());
+    try {
+      const s = await session.open(`${site.baseUrl}/framed`);
+      expect(s.frames).toEqual([{ url: `${site.baseUrl}/app`, sameSite: true, visible: true }]);
+      expect(s.elements.some((e) => e.name === 'Find trips')).toBe(false);
+      const inner = await session.open(s.frames[0]!.url);
+      expect(inner.elements.some((e) => e.name === 'Find trips')).toBe(true);
+    } finally {
+      await session.close();
+    }
+  }, 60_000);
+
+  it('summarizes only the site own requests, one line per method and path, API calls first', () => {
+    const rec = (method: string, url: string, extra: Partial<NetworkRecord> = {}): NetworkRecord => ({ at: '', context: { pageUrl: '' }, resourceType: 'xhr', method, url, credentialed: false, inScope: true, ...extra });
+    const own = (url: string) => new URL(url).hostname.endsWith('example.com');
+    const { requests, otherRequests } = summarizeRequests(
+      [
+        rec('GET', 'https://www.example.com/assets/i18n/en.json'),
+        rec('POST', 'https://telemetry.vendor.io/collect', { error: 'refused: write' }),
+        rec('GET', 'https://www.example.com/page'),
+        rec('POST', 'https://api.example.com/Login', { status: 200, responseShape: { kind: 'object', keys: ['Token'] }, allowedAs: 'app-request' }),
+        rec('POST', 'https://api.example.com/GetGenericCall', { status: 200, responseContentType: 'text/plain; charset=utf-8', bytes: 54354, allowedAs: 'app-request' }),
+        rec('POST', 'https://api.example.com/GetGenericCall?x=2', { status: 200, responseContentType: 'text/plain; charset=utf-8', bytes: 274, allowedAs: 'app-request' }),
+        rec('GET', 'https://www.example.com/app.js', { resourceType: 'script' }),
+      ],
+      own,
+    );
+    expect(otherRequests).toBe(2);
+    expect(requests.map((r) => `${r.method} ${r.url}`)).toEqual(['POST https://api.example.com/Login', 'POST https://api.example.com/GetGenericCall', 'GET https://www.example.com/page']);
+    expect(requests[1]).toMatchObject({ responseType: 'text/plain', bytes: 54354, times: 2 });
+    expect(requests[0]!.responseType).toBeUndefined();
+  });
 
   it('declares strict browsing tools', () => {
     const tools = browseToolDefinitions();

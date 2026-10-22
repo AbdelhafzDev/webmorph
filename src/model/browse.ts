@@ -14,7 +14,7 @@ import type { NetworkRecord } from '../schemas/networkEvidence.js';
 import type { ToolStep } from '../schemas/toolDefinition.js';
 import type { Capability, CapabilityInput, EvidenceRef } from '../schemas/websiteModel.js';
 import { shortHash } from '../core/ids.js';
-import { hostnameOf, sameSite } from '../net/url.js';
+import { hostnameOf, sameSite, STATIC_ASSET_PATH } from '../net/url.js';
 
 export interface BrowseOptions {
   scope: ScopePolicy;
@@ -49,6 +49,11 @@ export interface RequestSummary {
   bodyKeys?: string[];
   responseShape?: NetworkRecord['responseShape'];
   allowedAs?: 'app-request';
+  /** Set when the response is not JSON (an opaque or encoded payload, for instance). */
+  responseType?: string;
+  bytes?: number;
+  /** How many identical method+path requests this line stands for. */
+  times?: number;
   error?: string;
 }
 
@@ -76,8 +81,12 @@ export interface BrowseSummary {
   dialogs: string[];
   elements: ElementBrief[];
   forms: Array<{ formId: string; action: string; method: string; classification: string; hasSensitiveFields: boolean; fieldElementIds: string[] }>;
-  /** XHR and fetch traffic since the previous summary: how the model discovers what an action calls. */
+  /** Embedded frames: a form inside one is reached by opening the frame's URL. */
+  frames: Array<{ url: string; sameSite: boolean; visible: boolean }>;
+  /** The site's own XHR and fetch traffic since the previous summary (deduplicated): how the model discovers what an action calls. */
   requests: RequestSummary[];
+  /** Third-party and static-asset requests left out of `requests`. */
+  otherRequests: number;
   truncated: boolean;
   actionIndex: number;
   actionsLeft: number;
@@ -144,6 +153,14 @@ export class BrowseSession {
   /** URLs the session opened: citable as browsed pages. */
   get visited(): string[] {
     return Array.from(new Set(this.actions.filter((a) => a.kind === 'open').map((a) => a.afterUrl)));
+  }
+
+  private ownHost(raw: string): boolean {
+    try {
+      return this.allowedHost(new URL(raw));
+    } catch {
+      return false;
+    }
   }
 
   private allowedHost(url: URL): boolean {
@@ -265,25 +282,32 @@ export class BrowseSession {
     const { elements, forms } = buildInventory(snapshot, page.url());
     this.elements = new Map(elements.map((e) => [e.elementId, e]));
     this.forms = forms;
-    const textSample = await page.evaluate(() => (document.body?.innerText ?? '').replace(/\s+/g, ' ').trim().slice(0, 2000)).catch(() => '');
+    const textSample = await page.evaluate(() => (document.body?.innerText ?? '').replace(/\s+/g, ' ').trim().slice(0, 1200)).catch(() => '');
+    const frames = await page
+      .evaluate(() =>
+        Array.from(document.querySelectorAll('iframe'))
+          .map((f) => ({ url: f.src, visible: f.getBoundingClientRect().width > 50 && f.getBoundingClientRect().height > 50 }))
+          .filter((f) => /^https?:/.test(f.url))
+          .slice(0, 10),
+      )
+      .catch(() => [] as Array<{ url: string; visible: boolean }>);
     const records = this.ctx!.stats.network.slice(this.networkCursor);
     this.networkCursor = this.ctx!.stats.network.length;
-    const requests: RequestSummary[] = records
-      .filter((r) => r.resourceType === 'xhr' || r.resourceType === 'fetch')
-      .slice(0, MAX_REQUESTS)
-      .map((r) => ({ method: r.method, url: r.url.slice(0, 160), ...(r.status !== undefined ? { status: r.status } : {}), ...(r.requestBodyKeys ? { bodyKeys: r.requestBodyKeys } : {}), ...(r.responseShape ? { responseShape: r.responseShape } : {}), ...(r.allowedAs ? { allowedAs: r.allowedAs } : {}), ...(r.error ? { error: r.error } : {}) }));
+    const { requests, otherRequests } = summarizeRequests(records, (url) => this.ownHost(url));
     return {
       url: page.url(),
       title: snapshot.title,
       headings: snapshot.headings.slice(0, 20).map((h) => h.text),
       textSample,
       dialogs: snapshot.dialogs.map((d) => `${d.role}${d.name ? ` "${d.name}"` : ''}: ${d.textSample.slice(0, 120)}${d.buttonNames.length ? ` [${d.buttonNames.join(', ')}]` : ''}`),
+      frames: frames.map((f) => ({ url: f.url.slice(0, 200), sameSite: this.ownHost(f.url), visible: f.visible })),
       elements: elements
         .filter((e) => e.visible)
-        .slice(0, 150)
+        .slice(0, 100)
         .map((e) => ({ elementId: e.elementId, kind: e.kind, ...(e.name ? { name: e.name.slice(0, 80) } : {}), ...(e.text && e.text !== e.name ? { text: e.text.slice(0, 80) } : {}), tag: e.tag, ...(e.attributes.href ? { href: e.attributes.href } : {}), ...(e.attributes.placeholder ? { placeholder: e.attributes.placeholder } : {}), ...(e.attributes.name ? { inputName: e.attributes.name } : {}), ...(e.attributes.type ? { type: e.attributes.type } : {}), category: e.category, consequential: e.consequential, inDialog: e.inDialog, ...(e.options?.length ? { options: e.options.slice(0, 30) } : {}) })),
       forms: forms.map((f) => ({ formId: f.formId, action: f.action, method: f.method, classification: f.classification, hasSensitiveFields: f.hasSensitiveFields, fieldElementIds: f.fieldElementIds })),
       requests,
+      otherRequests,
       truncated: snapshot.truncated,
       actionIndex: this.actions.length - 1,
       actionsLeft: this.actionsLeft,
@@ -416,6 +440,8 @@ function detectRepeatedItemsInPage(arg: { within: string | null }): { container:
   for (const container of all) {
     const groups = new Map<string, Element[]>();
     for (const child of Array.from(container.children)) {
+      // Only rendered elements can be result items: never scripts, styles or templates, never hidden nodes.
+      if (/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|LINK|META)$/.test(child.tagName) || child.getBoundingClientRect().height === 0) continue;
       const s = sig(child);
       groups.set(s, [...(groups.get(s) ?? []), child]);
     }
@@ -454,11 +480,55 @@ const str = (opts: { description: string; nullable?: boolean }) => ({ type: opts
 const obj = (properties: Record<string, unknown>) => ({ type: 'object' as const, properties, required: Object.keys(properties), additionalProperties: false });
 
 /** The browsing tools offered to the model (strict schemas). */
+/**
+ * The site's own XHR and fetch requests, one line per method and path (with a count), API-looking calls first.
+ * Third-party traffic (analytics, telemetry, chat widgets) and static assets are counted, not listed.
+ */
+export function summarizeRequests(records: NetworkRecord[], own: (url: string) => boolean): { requests: RequestSummary[]; otherRequests: number } {
+  const lines = new Map<string, RequestSummary>();
+  let otherRequests = 0;
+  for (const r of records) {
+    if (r.resourceType !== 'xhr' && r.resourceType !== 'fetch') continue;
+    let path: string;
+    try {
+      const u = new URL(r.url);
+      path = `${u.origin}${u.pathname}`;
+    } catch {
+      continue;
+    }
+    if (!own(r.url) || STATIC_ASSET_PATH.test(path)) {
+      otherRequests += 1;
+      continue;
+    }
+    const key = `${r.method} ${path}`;
+    const seen = lines.get(key);
+    if (seen) {
+      seen.times = (seen.times ?? 1) + 1;
+      continue;
+    }
+    const json = /json/i.test(r.responseContentType ?? '');
+    lines.set(key, {
+      method: r.method,
+      url: r.url.slice(0, 160),
+      ...(r.status !== undefined ? { status: r.status } : {}),
+      ...(r.requestBodyKeys ? { bodyKeys: r.requestBodyKeys } : {}),
+      ...(r.responseShape ? { responseShape: r.responseShape } : {}),
+      ...(r.responseContentType && !json ? { responseType: r.responseContentType.split(';')[0]! } : {}),
+      ...(r.bytes !== undefined ? { bytes: r.bytes } : {}),
+      ...(r.allowedAs ? { allowedAs: r.allowedAs } : {}),
+      ...(r.error ? { error: r.error } : {}),
+    });
+  }
+  const apiFirst = (s: RequestSummary) => (s.responseShape || s.method !== 'GET' ? 0 : 1);
+  const requests = Array.from(lines.values()).sort((a, b) => apiFirst(a) - apiFirst(b)).slice(0, MAX_REQUESTS);
+  return { requests, otherRequests: otherRequests + Math.max(0, lines.size - MAX_REQUESTS) };
+}
+
 export function browseToolDefinitions(): Anthropic.Beta.BetaTool[] {
   return [
     {
       name: 'browse_open',
-      description: 'Open a page in your browsing session (in-scope or same-site host) and return what is on it: title, headings, text sample, dialogs, interactive elements with ids, forms, and the XHR/fetch requests the page made. Use the element ids with browse_act. Counts against the open budget.',
+      description: 'Open a page in your browsing session (in-scope or same-site host) and return what is on it: title, headings, text sample, dialogs, embedded frames (open the frame URL to work inside it), interactive elements with ids, forms, and the own-site XHR/fetch requests (deduplicated; third-party and static-asset traffic only counted). Use the element ids with browse_act. Counts against the open budget.',
       strict: true,
       input_schema: obj({ url: str({ description: 'Absolute URL.' }) }),
     },

@@ -81,6 +81,12 @@ export function registrableDomain(hostname: string): string {
 }
 
 /** Same registrable domain: sitemapfiles.haraj.com.sa and haraj.com.sa are the same site. */
+/**
+ * Paths that serve a front end's own static files (bundles, images, fonts, translation and locale files):
+ * fetched by XHR, but data about the application, not about the site's entities.
+ */
+export const STATIC_ASSET_PATH = /\/(assets|static|_next\/static|i18n|locales?|translations?|translation[-_]files)\/|\.(js|mjs|css|map|png|jpe?g|gif|svg|webp|ico|woff2?|ttf)(\?|$)/i;
+
 export function sameSite(a: string, b: string): boolean {
   return registrableDomain(a) === registrableDomain(b);
 }

@@ -57,8 +57,10 @@ export interface ChatTurnResponse {
   content: Anthropic.Beta.BetaContentBlock[];
   stopReason: string;
   model: string;
+  /** Input tokens processed without a cache hit (cache writes included). */
   inputTokens: number;
   outputTokens: number;
+  /** Input tokens served from the prompt cache, billed at about a tenth. */
   cacheReadTokens: number;
   error?: string;
 }
@@ -115,7 +117,8 @@ export class AnthropicModelClient implements ModelClient {
     const base = {
       content: response.content,
       model: response.model,
-      inputTokens: response.usage.input_tokens,
+      // Input without a cache hit (cache writes included); cache reads are reported apart, as on every provider.
+      inputTokens: response.usage.input_tokens + (response.usage.cache_creation_input_tokens ?? 0),
       outputTokens: response.usage.output_tokens,
       cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
       stopReason: response.stop_reason ?? 'unknown',
