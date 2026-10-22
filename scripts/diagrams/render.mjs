@@ -30,9 +30,23 @@ try {
 
   for (const scene of scenes) {
     const result = await page.evaluate(
-      async ({ skeleton, withPng }) => {
+      async ({ skeleton, withPng, name }) => {
         const ex = window.__ex;
-        const elements = ex.restoreElements(ex.convertToExcalidrawElements(skeleton, { regenerateIds: false }), null);
+        // Deterministic output: Excalidraw assigns random seeds (hand-drawn strokes), nonces and timestamps to the elements
+        // it generates; fix them so a re-render changes the files only when a scene changed.
+        const converted = ex.convertToExcalidrawElements(skeleton, { regenerateIds: false });
+        const ids = new Map(converted.map((el, i) => [el.id, `${name}-${i + 1}`]));
+        const remap = (id) => ids.get(id) ?? id;
+        converted.forEach((el, i) => {
+          Object.assign(el, { id: remap(el.id), seed: i + 1, versionNonce: i + 1, version: 1, updated: 0 });
+          if (el.boundElements) el.boundElements = el.boundElements.map((b) => ({ ...b, id: remap(b.id) }));
+          if (el.containerId) el.containerId = remap(el.containerId);
+          if (el.startBinding) el.startBinding = { ...el.startBinding, elementId: remap(el.startBinding.elementId) };
+          if (el.endBinding) el.endBinding = { ...el.endBinding, elementId: remap(el.endBinding.elementId) };
+          if (el.frameId) el.frameId = remap(el.frameId);
+          if (el.groupIds?.length) el.groupIds = el.groupIds.map(remap);
+        });
+        const elements = ex.restoreElements(converted, null);
         const base = { exportBackground: true, viewBackgroundColor: '#ffffff', exportPadding: 24, exportEmbedScene: true, exportScale: 1 };
         const light = await ex.exportToSvg({ elements, appState: base, files: null });
         const dark = await ex.exportToSvg({ elements, appState: { ...base, exportWithDarkMode: true }, files: null });
@@ -46,7 +60,7 @@ try {
         }
         return { elements, light: light.outerHTML, dark: dark.outerHTML, png };
       },
-      { skeleton: scene.elements, withPng: Boolean(pngDir) },
+      { skeleton: scene.elements, withPng: Boolean(pngDir), name: scene.name },
     );
     const source = { type: 'excalidraw', version: 2, source: 'https://github.com/AbdelhafzDev/webmorph/blob/main/scripts/diagrams/scenes.mjs', elements: result.elements, appState: { viewBackgroundColor: '#ffffff', gridSize: null }, files: {} };
     await writeFile(join(outDir, `${scene.name}.excalidraw`), JSON.stringify(source, null, 2) + '\n');

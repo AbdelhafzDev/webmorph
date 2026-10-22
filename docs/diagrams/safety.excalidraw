@@ -4,7 +4,7 @@
   "source": "https://github.com/AbdelhafzDev/webmorph/blob/main/scripts/diagrams/scenes.mjs",
   "elements": [
     {
-      "id": "iL1a4yx0dC45u29ZaHBz8",
+      "id": "safety-1",
       "type": "text",
       "x": 0,
       "y": 0,
@@ -22,12 +22,12 @@
       "frameId": null,
       "index": "a0",
       "roundness": null,
-      "seed": 1042578010,
-      "version": 2,
-      "versionNonce": 1252065370,
+      "seed": 1,
+      "version": 1,
+      "versionNonce": 1,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470104,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "Network safety: one policy, two paths, defense in depth",
@@ -41,7 +41,7 @@
       "lineHeight": 1.25
     },
     {
-      "id": "stages",
+      "id": "safety-2",
       "type": "rectangle",
       "x": 40,
       "y": 100,
@@ -61,26 +61,26 @@
       "roundness": {
         "type": 3
       },
-      "seed": 3829830,
-      "version": 3,
-      "versionNonce": 173330182,
+      "seed": 2,
+      "version": 1,
+      "versionNonce": 2,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "p8jpih3TTO3TRehFBxXHn"
+          "id": "safety-17"
         },
         {
-          "id": "BsKMSS3LKIiufSwvedFvS",
+          "id": "safety-9",
           "type": "arrow"
         }
       ],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false
     },
     {
-      "id": "browser",
+      "id": "safety-3",
       "type": "rectangle",
       "x": 40,
       "y": 340,
@@ -100,26 +100,26 @@
       "roundness": {
         "type": 3
       },
-      "seed": 186130202,
-      "version": 3,
-      "versionNonce": 1076580998,
+      "seed": 3,
+      "version": 1,
+      "versionNonce": 3,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "nyiGTIECwdHuIyb52gqH4"
+          "id": "safety-18"
         },
         {
-          "id": "awlPEFm_GXzg_1LmndIEP",
+          "id": "safety-12",
           "type": "arrow"
         }
       ],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false
     },
     {
-      "id": "http",
+      "id": "safety-4",
       "type": "rectangle",
       "x": 380,
       "y": 70,
@@ -139,30 +139,30 @@
       "roundness": {
         "type": 3
       },
-      "seed": 1766881158,
-      "version": 4,
-      "versionNonce": 759514502,
+      "seed": 4,
+      "version": 1,
+      "versionNonce": 4,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "Ybrjl4l-OUAHe9yKd0Qi7"
+          "id": "safety-19"
         },
         {
-          "id": "BsKMSS3LKIiufSwvedFvS",
+          "id": "safety-9",
           "type": "arrow"
         },
         {
-          "id": "Y9IFA7EEtu7QKLiGtyeAL",
+          "id": "safety-10",
           "type": "arrow"
         }
       ],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false
     },
     {
-      "id": "route",
+      "id": "safety-5",
       "type": "rectangle",
       "x": 380,
       "y": 310,
@@ -182,30 +182,30 @@
       "roundness": {
         "type": 3
       },
-      "seed": 1807297498,
-      "version": 4,
-      "versionNonce": 1123084550,
+      "seed": 5,
+      "version": 1,
+      "versionNonce": 5,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "d0lWw93uvpsmJUhsfbMc9"
+          "id": "safety-20"
         },
         {
-          "id": "awlPEFm_GXzg_1LmndIEP",
+          "id": "safety-12",
           "type": "arrow"
         },
         {
-          "id": "ZAKHvtjEJ4u5GJWo6MnlY",
+          "id": "safety-13",
           "type": "arrow"
         }
       ],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false
     },
     {
-      "id": "dns",
+      "id": "safety-6",
       "type": "rectangle",
       "x": 790,
       "y": 70,
@@ -225,30 +225,30 @@
       "roundness": {
         "type": 3
       },
-      "seed": 681809606,
-      "version": 4,
-      "versionNonce": 308943878,
+      "seed": 6,
+      "version": 1,
+      "versionNonce": 6,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "RKy1f5hulDdY-ep-91F3r"
+          "id": "safety-21"
         },
         {
-          "id": "Y9IFA7EEtu7QKLiGtyeAL",
+          "id": "safety-10",
           "type": "arrow"
         },
         {
-          "id": "_wWOrbG0pu07USbXW3hR8",
+          "id": "safety-11",
           "type": "arrow"
         }
       ],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false
     },
     {
-      "id": "proxy",
+      "id": "safety-7",
       "type": "rectangle",
       "x": 790,
       "y": 310,
@@ -268,30 +268,30 @@
       "roundness": {
         "type": 3
       },
-      "seed": 1444585626,
-      "version": 4,
-      "versionNonce": 757260166,
+      "seed": 7,
+      "version": 1,
+      "versionNonce": 7,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "cbKzCzT2J2kFDLyj4I-OG"
+          "id": "safety-22"
         },
         {
-          "id": "ZAKHvtjEJ4u5GJWo6MnlY",
+          "id": "safety-13",
           "type": "arrow"
         },
         {
-          "id": "P3dyxWpuQ7lIog7SWS4R-",
+          "id": "safety-14",
           "type": "arrow"
         }
       ],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false
     },
     {
-      "id": "site",
+      "id": "safety-8",
       "type": "rectangle",
       "x": 1180,
       "y": 210,
@@ -311,30 +311,30 @@
       "roundness": {
         "type": 3
       },
-      "seed": 651218438,
-      "version": 4,
-      "versionNonce": 367591110,
+      "seed": 8,
+      "version": 1,
+      "versionNonce": 8,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "qUcvYfVuo8IhFOpT1B943"
+          "id": "safety-23"
         },
         {
-          "id": "_wWOrbG0pu07USbXW3hR8",
+          "id": "safety-11",
           "type": "arrow"
         },
         {
-          "id": "P3dyxWpuQ7lIog7SWS4R-",
+          "id": "safety-14",
           "type": "arrow"
         }
       ],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false
     },
     {
-      "id": "BsKMSS3LKIiufSwvedFvS",
+      "id": "safety-9",
       "type": "arrow",
       "x": 300.5,
       "y": 165,
@@ -352,12 +352,12 @@
       "frameId": null,
       "index": "a8",
       "roundness": null,
-      "seed": 99581274,
-      "version": 4,
-      "versionNonce": 224922714,
+      "seed": 9,
+      "version": 1,
+      "versionNonce": 9,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "points": [
@@ -372,12 +372,12 @@
       ],
       "lastCommittedPoint": null,
       "startBinding": {
-        "elementId": "stages",
+        "elementId": "safety-2",
         "focus": 0,
         "gap": 1
       },
       "endBinding": {
-        "elementId": "http",
+        "elementId": "safety-4",
         "focus": 0,
         "gap": 1
       },
@@ -386,7 +386,7 @@
       "elbowed": false
     },
     {
-      "id": "Y9IFA7EEtu7QKLiGtyeAL",
+      "id": "safety-10",
       "type": "arrow",
       "x": 710.5,
       "y": 165,
@@ -404,12 +404,12 @@
       "frameId": null,
       "index": "a9",
       "roundness": null,
-      "seed": 819273030,
-      "version": 4,
-      "versionNonce": 683687386,
+      "seed": 10,
+      "version": 1,
+      "versionNonce": 10,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "points": [
@@ -424,12 +424,12 @@
       ],
       "lastCommittedPoint": null,
       "startBinding": {
-        "elementId": "http",
+        "elementId": "safety-4",
         "focus": 0,
         "gap": 1
       },
       "endBinding": {
-        "elementId": "dns",
+        "elementId": "safety-6",
         "focus": 0,
         "gap": 1
       },
@@ -438,7 +438,7 @@
       "elbowed": false
     },
     {
-      "id": "_wWOrbG0pu07USbXW3hR8",
+      "id": "safety-11",
       "type": "arrow",
       "x": 1100.5,
       "y": 242.5,
@@ -456,12 +456,12 @@
       "frameId": null,
       "index": "aA",
       "roundness": null,
-      "seed": 1217053210,
-      "version": 4,
-      "versionNonce": 903483226,
+      "seed": 11,
+      "version": 1,
+      "versionNonce": 11,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "points": [
@@ -476,12 +476,12 @@
       ],
       "lastCommittedPoint": null,
       "startBinding": {
-        "elementId": "dns",
+        "elementId": "safety-6",
         "focus": -0.03540133193129936,
         "gap": 1.903319525766715
       },
       "endBinding": {
-        "elementId": "site",
+        "elementId": "safety-8",
         "focus": -0.4174757281553394,
         "gap": 1
       },
@@ -490,7 +490,7 @@
       "elbowed": false
     },
     {
-      "id": "awlPEFm_GXzg_1LmndIEP",
+      "id": "safety-12",
       "type": "arrow",
       "x": 300.5,
       "y": 405,
@@ -508,12 +508,12 @@
       "frameId": null,
       "index": "aB",
       "roundness": null,
-      "seed": 1812825222,
-      "version": 4,
-      "versionNonce": 684556506,
+      "seed": 12,
+      "version": 1,
+      "versionNonce": 12,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "points": [
@@ -528,12 +528,12 @@
       ],
       "lastCommittedPoint": null,
       "startBinding": {
-        "elementId": "browser",
+        "elementId": "safety-3",
         "focus": 0,
         "gap": 1
       },
       "endBinding": {
-        "elementId": "route",
+        "elementId": "safety-5",
         "focus": 0,
         "gap": 1
       },
@@ -542,7 +542,7 @@
       "elbowed": false
     },
     {
-      "id": "ZAKHvtjEJ4u5GJWo6MnlY",
+      "id": "safety-13",
       "type": "arrow",
       "x": 710.5,
       "y": 405,
@@ -560,12 +560,12 @@
       "frameId": null,
       "index": "aC",
       "roundness": null,
-      "seed": 1222602458,
-      "version": 4,
-      "versionNonce": 1337102938,
+      "seed": 13,
+      "version": 1,
+      "versionNonce": 13,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "points": [
@@ -580,12 +580,12 @@
       ],
       "lastCommittedPoint": null,
       "startBinding": {
-        "elementId": "route",
+        "elementId": "safety-5",
         "focus": 0,
         "gap": 1
       },
       "endBinding": {
-        "elementId": "proxy",
+        "elementId": "safety-7",
         "focus": 0,
         "gap": 1
       },
@@ -594,7 +594,7 @@
       "elbowed": false
     },
     {
-      "id": "P3dyxWpuQ7lIog7SWS4R-",
+      "id": "safety-14",
       "type": "arrow",
       "x": 1100.5,
       "y": 327.5,
@@ -612,12 +612,12 @@
       "frameId": null,
       "index": "aD",
       "roundness": null,
-      "seed": 1245119430,
-      "version": 4,
-      "versionNonce": 1386300378,
+      "seed": 14,
+      "version": 1,
+      "versionNonce": 14,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "points": [
@@ -632,12 +632,12 @@
       ],
       "lastCommittedPoint": null,
       "startBinding": {
-        "elementId": "proxy",
+        "elementId": "safety-7",
         "focus": 0.03540133193130034,
         "gap": 1.9033195257664985
       },
       "endBinding": {
-        "elementId": "site",
+        "elementId": "safety-8",
         "focus": 0.41747572815533734,
         "gap": 1
       },
@@ -646,7 +646,7 @@
       "elbowed": false
     },
     {
-      "id": "lf-_UOXMti1oqm1tFhJTk",
+      "id": "safety-15",
       "type": "rectangle",
       "x": 40,
       "y": 560,
@@ -666,22 +666,22 @@
       "roundness": {
         "type": 3
       },
-      "seed": 1535148954,
-      "version": 2,
-      "versionNonce": 1886374298,
+      "seed": 15,
+      "version": 1,
+      "versionNonce": 15,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "WE5Q8bqhyk1Cf7-Uga5T4"
+          "id": "safety-24"
         }
       ],
-      "updated": 1792658470104,
+      "updated": 0,
       "link": null,
       "locked": false
     },
     {
-      "id": "s0WYyid5R22Dd2J0v_zRO",
+      "id": "safety-16",
       "type": "rectangle",
       "x": 40,
       "y": 700,
@@ -701,22 +701,22 @@
       "roundness": {
         "type": 3
       },
-      "seed": 2104400646,
-      "version": 2,
-      "versionNonce": 1719579910,
+      "seed": 16,
+      "version": 1,
+      "versionNonce": 16,
       "isDeleted": false,
       "boundElements": [
         {
           "type": "text",
-          "id": "HQ8WkqumFEAGygwK3dLsu"
+          "id": "safety-25"
         }
       ],
-      "updated": 1792658470104,
+      "updated": 0,
       "link": null,
       "locked": false
     },
     {
-      "id": "p8jpih3TTO3TRehFBxXHn",
+      "id": "safety-17",
       "type": "text",
       "x": 81.46484375,
       "y": 127.5,
@@ -734,12 +734,12 @@
       "frameId": null,
       "index": "aG",
       "roundness": null,
-      "seed": 1303873114,
-      "version": 3,
-      "versionNonce": 642374170,
+      "seed": 17,
+      "version": 1,
+      "versionNonce": 17,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "Discovery stages\nand the tool interpreter\n(HTTP tools: json, html-data,\nhtml-list)",
@@ -747,13 +747,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "stages",
+      "containerId": "safety-2",
       "originalText": "Discovery stages\nand the tool interpreter\n(HTTP tools: json, html-data,\nhtml-list)",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "nyiGTIECwdHuIyb52gqH4",
+      "id": "safety-18",
       "type": "text",
       "x": 96.893310546875,
       "y": 376.875,
@@ -771,12 +771,12 @@
       "frameId": null,
       "index": "aH",
       "roundness": null,
-      "seed": 1281993498,
-      "version": 3,
-      "versionNonce": 527166598,
+      "seed": 18,
+      "version": 1,
+      "versionNonce": 18,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "Chromium (Playwright)\ninspection, probes,\nbrowser tools, recording",
@@ -784,13 +784,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "browser",
+      "containerId": "safety-3",
       "originalText": "Chromium (Playwright)\ninspection, probes,\nbrowser tools, recording",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "Ybrjl4l-OUAHe9yKd0Qi7",
+      "id": "safety-19",
       "type": "text",
       "x": 441.39111328125,
       "y": 112.5,
@@ -808,12 +808,12 @@
       "frameId": null,
       "index": "aI",
       "roundness": null,
-      "seed": 586758106,
-      "version": 3,
-      "versionNonce": 1325106906,
+      "seed": 19,
+      "version": 1,
+      "versionNonce": 19,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "SafeHttpClient\nper hop: exact-host scope, prohibited\npaths, blocked hostnames, size cap,\ntimeout, bounded retries honoring\nRetry-After, per-host delay,\nconcurrency and request budget",
@@ -821,13 +821,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "http",
+      "containerId": "safety-4",
       "originalText": "SafeHttpClient\nper hop: exact-host scope, prohibited\npaths, blocked hostnames, size cap,\ntimeout, bounded retries honoring\nRetry-After, per-host delay,\nconcurrency and request budget",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "d0lWw93uvpsmJUhsfbMc9",
+      "id": "safety-20",
       "type": "text",
       "x": 424.08251953125,
       "y": 352.5,
@@ -845,12 +845,12 @@
       "frameId": null,
       "index": "aJ",
       "roundness": null,
-      "seed": 1098460314,
-      "version": 3,
-      "versionNonce": 1435003846,
+      "seed": 20,
+      "version": 1,
+      "versionNonce": 20,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "Route layer (per request)\ndocument scope, method policy (GET only\nunless write probes), images, media and\nfonts skipped, fetch with redirects\ndisabled, every hop re-checked,\nWebSockets refused",
@@ -858,13 +858,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "route",
+      "containerId": "safety-5",
       "originalText": "Route layer (per request)\ndocument scope, method policy (GET only\nunless write probes), images, media and\nfonts skipped, fetch with redirects\ndisabled, every hop re-checked,\nWebSockets refused",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "RKy1f5hulDdY-ep-91F3r",
+      "id": "safety-21",
       "type": "text",
       "x": 838.044921875,
       "y": 121.25,
@@ -882,12 +882,12 @@
       "frameId": null,
       "index": "aK",
       "roundness": null,
-      "seed": 496798042,
-      "version": 3,
-      "versionNonce": 1985584026,
+      "seed": 21,
+      "version": 1,
+      "versionNonce": 21,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "Pinned DNS lookup\nresolve through WebMorph's resolver,\nrefuse private and reserved ranges\n(IPv4, IPv6, mapped, NAT64),\ndial the address that was checked",
@@ -895,13 +895,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "dns",
+      "containerId": "safety-6",
       "originalText": "Pinned DNS lookup\nresolve through WebMorph's resolver,\nrefuse private and reserved ranges\n(IPv4, IPv6, mapped, NAT64),\ndial the address that was checked",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "cbKzCzT2J2kFDLyj4I-OG",
+      "id": "safety-22",
       "type": "text",
       "x": 841.5791015625,
       "y": 361.25,
@@ -919,12 +919,12 @@
       "frameId": null,
       "index": "aL",
       "roundness": null,
-      "seed": 2125876762,
-      "version": 3,
-      "versionNonce": 1783825158,
+      "seed": 22,
+      "version": 1,
+      "versionNonce": 22,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "Policy proxy (per connection)\nresolve and pin every host, including\nredirect targets and subresources;\nrebinding cannot change the verdict;\nmetadata and link-local refused",
@@ -932,13 +932,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "proxy",
+      "containerId": "safety-7",
       "originalText": "Policy proxy (per connection)\nresolve and pin every host, including\nredirect targets and subresources;\nrebinding cannot change the verdict;\nmetadata and link-local refused",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "qUcvYfVuo8IhFOpT1B943",
+      "id": "safety-23",
       "type": "text",
       "x": 1206.9140625,
       "y": 265,
@@ -956,12 +956,12 @@
       "frameId": null,
       "index": "aM",
       "roundness": null,
-      "seed": 1236892378,
-      "version": 3,
-      "versionNonce": 1519851610,
+      "seed": 23,
+      "version": 1,
+      "versionNonce": 23,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "Any website\n(public site, read-only)",
@@ -969,13 +969,13 @@
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "site",
+      "containerId": "safety-8",
       "originalText": "Any website\n(public site, read-only)",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "WE5Q8bqhyk1Cf7-Uga5T4",
+      "id": "safety-24",
       "type": "text",
       "x": 45,
       "y": 590.625,
@@ -993,12 +993,12 @@
       "frameId": null,
       "index": "aN",
       "roundness": null,
-      "seed": 1480571034,
-      "version": 3,
-      "versionNonce": 273199686,
+      "seed": 24,
+      "version": 1,
+      "versionNonce": 24,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "What never happens: a redirect or link to another host is followed (it is recorded as out of scope); a bot challenge or\nrate limit is evaded (it is recorded as blocked); a probe or tool sends a POST (writes need an explicit flag, and even then\nonly search or filter forms without sensitive fields); a credential WebMorph observed is replayed on its own authority (D21, D23).",
@@ -1006,13 +1006,13 @@
       "fontFamily": 5,
       "textAlign": "left",
       "verticalAlign": "middle",
-      "containerId": "lf-_UOXMti1oqm1tFhJTk",
+      "containerId": "safety-15",
       "originalText": "What never happens: a redirect or link to another host is followed (it is recorded as out of scope); a bot challenge or\nrate limit is evaded (it is recorded as blocked); a probe or tool sends a POST (writes need an explicit flag, and even then\nonly search or filter forms without sensitive fields); a credential WebMorph observed is replayed on its own authority (D21, D23).",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
-      "id": "HQ8WkqumFEAGygwK3dLsu",
+      "id": "safety-25",
       "type": "text",
       "x": 45,
       "y": 718.75,
@@ -1030,12 +1030,12 @@
       "frameId": null,
       "index": "aO",
       "roundness": null,
-      "seed": 867276122,
-      "version": 3,
-      "versionNonce": 2072444186,
+      "seed": 25,
+      "version": 1,
+      "versionNonce": 25,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1792658470105,
+      "updated": 0,
       "link": null,
       "locked": false,
       "text": "Evidence is redacted at capture: sensitive query values replaced, request bodies never stored (JSON shapes only),\ncookie and credential headers recorded by name, never by value.",
@@ -1043,7 +1043,7 @@
       "fontFamily": 5,
       "textAlign": "left",
       "verticalAlign": "middle",
-      "containerId": "s0WYyid5R22Dd2J0v_zRO",
+      "containerId": "safety-16",
       "originalText": "Evidence is redacted at capture: sensitive query values replaced, request bodies never stored (JSON shapes only),\ncookie and credential headers recorded by name, never by value.",
       "autoResize": true,
       "lineHeight": 1.25

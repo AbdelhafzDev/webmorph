@@ -21,17 +21,23 @@ class Scene {
     this.name = name;
     this.elements = [];
     this.boxes = new Map();
+    this.nextSeed = 1;
     if (title) this.text(title, 0, 0, { fontSize: 28 });
   }
 
+  /** Push an element with a deterministic seed, so re-rendering a scene reproduces the same strokes. */
+  add(element) {
+    this.elements.push({ seed: this.nextSeed++, ...element });
+  }
+
   text(text, x, y, { fontSize = 16, color = INK, align = 'left' } = {}) {
-    this.elements.push({ type: 'text', x, y, text, fontSize, fontFamily: FONT, strokeColor: color, textAlign: align });
+    this.add({ type: 'text', x, y, text, fontSize, fontFamily: FONT, strokeColor: color, textAlign: align });
   }
 
   /** A labelled rounded box. */
   box(id, x, y, width, height, label, { color = COLORS.gray, fontSize = 14, dashed = false, textColor = INK, stroke = INK, align = 'center' } = {}) {
     this.boxes.set(id, { x, y, width, height });
-    this.elements.push({
+    this.add({
       type: 'rectangle',
       id,
       x,
@@ -52,14 +58,14 @@ class Scene {
 
   /** A faint lane behind a group of boxes, with a caption. */
   lane(x, y, width, height, caption, color = '#f8f9fa', captionX = x + 14) {
-    this.elements.push({ type: 'rectangle', x, y, width, height, strokeColor: '#868e96', backgroundColor: color, fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'dashed', roughness: 0, roundness: { type: 3 } });
+    this.add({ type: 'rectangle', x, y, width, height, strokeColor: '#868e96', backgroundColor: color, fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'dashed', roughness: 0, roundness: { type: 3 } });
     this.text(caption, captionX, y + 10, { fontSize: 15, color: '#495057' });
   }
 
   /** A decision diamond. */
   diamond(id, x, y, width, height, label, { color = COLORS.yellow, fontSize = 14 } = {}) {
     this.boxes.set(id, { x, y, width, height });
-    this.elements.push({ type: 'diamond', id, x, y, width, height, strokeColor: INK, backgroundColor: color, fillStyle: 'solid', strokeWidth: 2, roughness: 1, label: { text: label, fontSize, fontFamily: FONT, strokeColor: INK, textAlign: 'center', verticalAlign: 'middle' } });
+    this.add({ type: 'diamond', id, x, y, width, height, strokeColor: INK, backgroundColor: color, fillStyle: 'solid', strokeWidth: 2, roughness: 1, label: { text: label, fontSize, fontFamily: FONT, strokeColor: INK, textAlign: 'center', verticalAlign: 'middle' } });
     return id;
   }
 
@@ -94,7 +100,7 @@ class Scene {
     }
     const abs = [start, ...via, end];
     const points = abs.map(([x, y]) => [x - start[0], y - start[1]]);
-    this.elements.push({
+    this.add({
       type: 'arrow',
       x: start[0],
       y: start[1],
@@ -113,7 +119,7 @@ class Scene {
 
   /** A sticky note: dashed box with left-aligned text. */
   note(x, y, width, height, text, color = COLORS.yellow) {
-    this.elements.push({ type: 'rectangle', x, y, width, height, strokeColor: '#868e96', backgroundColor: color, fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'dashed', roughness: 1, roundness: { type: 3 }, label: { text, fontSize: 13, fontFamily: FONT, strokeColor: INK, textAlign: 'left', verticalAlign: 'middle' } });
+    this.add({ type: 'rectangle', x, y, width, height, strokeColor: '#868e96', backgroundColor: color, fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'dashed', roughness: 1, roundness: { type: 3 }, label: { text, fontSize: 13, fontFamily: FONT, strokeColor: INK, textAlign: 'left', verticalAlign: 'middle' } });
   }
 }
 
