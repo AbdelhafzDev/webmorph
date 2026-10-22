@@ -72,6 +72,18 @@ export interface ModelClient {
 /** Models that accept the server-side refusal fallback parameter. */
 const FALLBACK_MODELS = /^claude-(opus-5(-5)?|fable-5(-1)?|sonnet-5-5)(-|$)/;
 
+/** One readable line for a model call failure: the API's own message for typed SDK errors, the first line otherwise. */
+export function modelErrorMessage(err: unknown): string {
+  if (err instanceof Anthropic.APIError) {
+    const body = err.error as { error?: { type?: string; message?: string } } | undefined;
+    const detail = body?.error?.message ?? err.message;
+    const kind = err instanceof Anthropic.AuthenticationError ? 'authentication failed' : err instanceof Anthropic.RateLimitError ? 'rate limited' : err instanceof Anthropic.BadRequestError ? 'request rejected' : `API error ${err.status ?? ''}`.trim();
+    return `${kind}: ${detail.split('\n')[0]}`;
+  }
+  if (err instanceof Anthropic.APIConnectionError) return `connection failed: ${err.message.split('\n')[0]}`;
+  return (err instanceof Error ? err.message : String(err)).split('\n')[0] ?? 'unknown error';
+}
+
 /** Claude via the official SDK with schema-constrained output. Credentials resolve from the environment. */
 export class AnthropicModelClient implements ModelClient {
   private readonly client: Anthropic;

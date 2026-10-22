@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import type { Capability, CapabilityInput, EvidenceRef, WebsiteModelData, AgentRecord } from '../schemas/websiteModel.js';
 import type { ModelSources } from './facts.js';
 import type { ChatTurnRequest, ModelClient } from './llm.js';
-import { acceptableText } from './llm.js';
+import { acceptableText, modelErrorMessage } from './llm.js';
 import type { SafeHttpClient } from '../net/http.js';
 import type { ScopePolicy } from '../net/scope.js';
 import type { Logger } from '../core/job.js';
@@ -622,7 +622,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
     }
     if (!record.finished && !record.stoppedBecause) record.stoppedBecause = 'turn budget exhausted';
   } catch (err) {
-    record.error = err instanceof Error ? err.message.split('\n')[0] : String(err);
+    record.error = modelErrorMessage(err);
     record.stoppedBecause = record.error;
   }
   services.logger.info(`harness: ${record.turns} turn(s), ${record.toolCalls.length} tool call(s), ${record.proposals.accepted.length} proposal(s) kept, ${record.proposals.rejected.length} rejected, ${record.inputTokens} in / ${record.outputTokens} out tokens; ${record.stoppedBecause ?? ''}`);

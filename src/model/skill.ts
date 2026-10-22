@@ -3,7 +3,7 @@ import type { ToolSpec } from '../schemas/toolDefinition.js';
 import type { ValidationReportData, ToolValidation } from '../schemas/validationReport.js';
 import type { WebsiteModelData } from '../schemas/websiteModel.js';
 import type { SkillDefinitionData, SkillExample, SkillHandoff, SkillToolEntry } from '../schemas/skillDefinition.js';
-import { acceptableText, type ModelClient } from './llm.js';
+import { acceptableText, modelErrorMessage, type ModelClient } from './llm.js';
 import { hostnameOf } from '../net/url.js';
 
 export const SKILL_PROMPT_VERSION = '2026-10-22.1';
@@ -211,7 +211,7 @@ export async function generateSkill(input: SkillInput, client?: ModelClient): Pr
         Object.assign(generation, { method: 'model', model: response.model, inputTokens: response.inputTokens, outputTokens: response.outputTokens, rejected: grounded.rejected });
       } else generation.error = response.error ?? 'no parsed output';
     } catch (err) {
-      generation.error = (err instanceof Error ? err.message : String(err)).split('\n')[0];
+      generation.error = modelErrorMessage(err);
     }
   }
   const examples = examplesFromValidation(input.tools, input.validation);

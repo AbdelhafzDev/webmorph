@@ -11,7 +11,7 @@ import { DocumentationIndex } from '../schemas/documentationIndex.js';
 import { ApiCandidates } from '../schemas/networkEvidence.js';
 import { WebsiteModel, WEBSITE_MODEL_VERSION, type Capability, type WebsiteModelData } from '../schemas/websiteModel.js';
 import { buildDeterministicModel, type ModelSources } from '../model/facts.js';
-import { AnthropicModelClient, buildEnrichmentPayload, Enrichment, ENRICHMENT_SYSTEM, mergeEnrichment, type ModelClient } from '../model/llm.js';
+import { AnthropicModelClient, buildEnrichmentPayload, Enrichment, ENRICHMENT_SYSTEM, mergeEnrichment, modelErrorMessage, type ModelClient } from '../model/llm.js';
 import { runModelHarness, type HarnessServices, type InspectionSummary, type ProposalVerdict } from '../model/agent.js';
 import { BrowserRuntime } from '../browser/runtime.js';
 import { inspectPage, type BlobWriter } from '../browser/inspect.js';
@@ -20,7 +20,6 @@ import { toolNeedsBrowser } from '../tools/interpreter.js';
 import { validateTool } from './stage10-validate.js';
 import { createHttpClient, makeEnvelope, refTo, scopeFromManifest, type DiscoveryInput } from './shared.js';
 import type { ArtifactRef } from '../schemas/common.js';
-import { errorMessage } from '../core/errors.js';
 
 export interface ModelOptions {
   /** Default true. When false, the model is built from evidence only. */
@@ -82,7 +81,7 @@ export const stage8Model: StageDefinition<DiscoveryInput & { model?: ModelOption
             ctx.logger.warn(`model: enrichment skipped: ${data.enrichment.error}`);
           }
         } catch (err) {
-          data.enrichment = { applied: false, model: client.id, rejected: [], error: errorMessage(err).split('\n')[0] };
+          data.enrichment = { applied: false, model: client.id, rejected: [], error: modelErrorMessage(err) };
           ctx.logger.warn(`model: enrichment failed, keeping deterministic model: ${data.enrichment.error}`);
         }
       }

@@ -92,3 +92,15 @@ describe('AnthropicModelClient response mapping', () => {
     expect(merged.rejected).toHaveLength(2);
   });
 });
+
+describe('modelErrorMessage', () => {
+  it('turns SDK errors into one readable line and leaves other errors alone', async () => {
+    const Anthropic = (await import('@anthropic-ai/sdk')).default;
+    const { modelErrorMessage } = await import('../src/model/llm.js');
+    const billing = new Anthropic.BadRequestError(400, { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } }, 'bad request', new Headers());
+    expect(modelErrorMessage(billing)).toBe('request rejected: Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.');
+    const auth = new Anthropic.AuthenticationError(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }, 'unauthorized', new Headers());
+    expect(modelErrorMessage(auth)).toBe('authentication failed: invalid x-api-key');
+    expect(modelErrorMessage(new Error('boom\nstack'))).toBe('boom');
+  });
+});

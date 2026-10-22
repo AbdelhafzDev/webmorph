@@ -7,7 +7,7 @@ import { CrawlReport } from '../schemas/crawlReport.js';
 import { InspectionPlan, INSPECTION_PLAN_VERSION, type InspectionEntry, type InspectionPlanData } from '../schemas/inspectionPlan.js';
 import { makeEnvelope, refTo, type DiscoveryInput } from './shared.js';
 import { z } from 'zod';
-import { AnthropicModelClient, acceptableText, type ModelClient } from '../model/llm.js';
+import { AnthropicModelClient, acceptableText, modelErrorMessage, type ModelClient } from '../model/llm.js';
 import type { ModelOptions } from './stage8-model.js';
 
 /** What the model may decide about the plan: which candidates to open, and whether to probe them. */
@@ -50,7 +50,7 @@ export async function chooseWithModel(client: ModelClient, candidates: Inspectio
     if (start && !selected.includes(start)) selected.unshift(start);
     return { selected: selected.slice(0, max), notes };
   } catch (err) {
-    return { error: (err instanceof Error ? err.message : String(err)).split('\n')[0] ?? 'model error' };
+    return { error: modelErrorMessage(err) };
   }
 }
 
