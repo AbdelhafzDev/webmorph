@@ -397,7 +397,9 @@ export class BrowseSession {
         let url = inputs.every((i) => bindInUrl(a.afterUrl, i.example, i.name) !== a.afterUrl) ? a.afterUrl : (a.requestedUrl ?? a.afterUrl);
         for (const i of inputs) url = bindInUrl(url, i.example, i.name);
         firstUrl ??= a.afterUrl;
-        steps.push({ op: 'navigate', url });
+        // An optional input left out keeps the value the session used.
+        const defaults = Object.fromEntries(inputs.filter((i) => !i.required).map((i) => [i.name, i.example]));
+        steps.push({ op: 'navigate', url, ...(Object.keys(defaults).length ? { defaults } : {}) });
         steps.push({ op: 'wait', for: 'dom-stable', timeoutMs: settleMs });
         continue;
       }

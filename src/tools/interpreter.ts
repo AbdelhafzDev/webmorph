@@ -56,9 +56,9 @@ export function softErrorFromTitle(title: string): 'NOT_FOUND' | 'SITE_CHANGED' 
   return undefined;
 }
 
-function renderUrl(step: { url: string; query?: Record<string, string>; fixedQuery?: Record<string, string> }, inputs: Record<string, unknown>): string {
+function renderUrl(step: { url: string; query?: Record<string, string>; fixedQuery?: Record<string, string>; defaults?: Record<string, string> }, inputs: Record<string, unknown>): string {
   const url = step.url.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_, name: string) => {
-    const v = inputs[name];
+    const v = inputs[name] ?? step.defaults?.[name];
     if (v === undefined || v === null) throw new ToolFailure('INPUT_INVALID', `missing input "${name}" for URL`);
     return encodeURIComponent(String(v));
   });

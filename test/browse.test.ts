@@ -123,7 +123,7 @@ describe('the model drives the browser (D27)', () => {
         entity: 'product',
         inputs: [
           { name: 'page', type: 'string', required: true, description: 'Page number', example: '1', actionIndex: 1, mode: 'value' },
-          { name: 'sort', type: 'string', required: true, description: 'asc or desc', example: 'desc', actionIndex: 1, mode: 'value' },
+          { name: 'sort', type: 'string', required: false, description: 'asc or desc', example: 'desc', actionIndex: 1, mode: 'value' },
         ],
         extract: { kind: 'item-list', item: 'ul.grid > li', fields: [{ name: 'name', selector: 'a', attr: null }, { name: 'url', selector: 'a', attr: 'href' }], hrefPattern: null, maxItems: 20 },
         resultUrlPattern: null,
@@ -138,6 +138,10 @@ describe('the model drives the browser (D27)', () => {
       const run = await executeTool(runtime, tool, { page: '2', sort: 'asc' }, { scope, pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1500 });
       expect(run.ok, run.errorMessage).toBe(true);
       expect((run.output as { results: Array<{ name: string }> }).results.map((r) => r.name)).toEqual(['Product 4', 'Product 5', 'Product 6']);
+      // An optional input left out keeps the session's value (desc): page 1 in descending order.
+      const defaulted = await executeTool(runtime, tool, { page: '1' }, { scope, pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1500 });
+      expect(defaulted.ok, defaulted.errorMessage).toBe(true);
+      expect((defaulted.output as { results: Array<{ name: string }> }).results.map((r) => r.name)).toEqual(['Product 6', 'Product 5', 'Product 4']);
       expect(() => session.buildWorkflowCapability({ ...proposal, inputs: [{ ...proposal.inputs[0]!, example: '9' }] }, site.baseUrl)).toThrow(/does not contain the example value "9"/);
     } finally {
       await session.close();

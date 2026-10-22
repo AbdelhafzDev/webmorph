@@ -80,6 +80,7 @@ export const ToolStep = z.discriminatedUnion('op', [
     op: z.literal('navigate'),
     url: z.string().describe('Absolute URL template. {{input}} placeholders are URL-encoded.'),
     query: z.record(z.string(), z.string()).optional().describe('Query parameter name to input name; added only when the input is provided.'),
+    defaults: z.record(z.string(), z.string()).optional().describe('Value for a {{placeholder}} whose optional input is not provided: the value the recorded session used.'),
   }),
   // Locator values may carry {{input}} placeholders (an option named after an input, for example); they are rendered at run time.
   z.object({ op: z.literal('fill'), locator: LocatorCandidate, valueFrom: z.string() }),
