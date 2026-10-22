@@ -20,7 +20,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "schemas:export": "tsx src/cli.ts schemas export schemas",
-    "diagrams": "node scripts/diagrams/render.mjs"
+    "diagrams": "node scripts/diagrams/render.mjs",
+    "bench": "node --import tsx scripts/bench/run.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

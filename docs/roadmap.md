@@ -110,4 +110,4 @@ Live runs against a real site (2026-10-22, `gpt-5.5` on `www.sar.com.sa`, a Gats
 
 ## Measurement before a release
 
-Independent of the phases above: a benchmark harness over a fixed set of fixture and live sites reporting capabilities found, HTTP routes validated, gaps by reason, latency percentiles and cost per run; typed response schemas for JSON API tools; scheduled revalidation to report replay stability over time.
+Independent of the phases above: a benchmark over a fixed set of live sites (`bench/`, `pnpm bench`): several runs per site with one budget, scored from the artifacts for tools validated by transport, whether the site's main task is covered and by how many required inputs, harness turns and tokens, and wall time, with the baseline committed under `bench/results/` so each change shows a delta per site. Still open: typed response schemas for JSON API tools; scheduled revalidation to report replay stability over time.
