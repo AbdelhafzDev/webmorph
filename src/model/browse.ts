@@ -398,6 +398,8 @@ export class BrowseSession {
         for (const i of inputs) url = bindInUrl(url, i.example, i.name);
         firstUrl ??= a.afterUrl;
         // An optional input left out keeps the value the session used.
+        const stale = fixedDatesIn(url);
+        if (stale.length) throw new BrowseRefusal(`the program would always send ${stale.join(', ')}: a fixed date goes stale. Bind it to a date input (several inputs may bind to one opened URL; a date input also binds every query value equal to its example), or open the URL with that value equal to a bound date`);
         const defaults = Object.fromEntries(inputs.filter((i) => !i.required).map((i) => [i.name, i.example]));
         steps.push({ op: 'navigate', url, ...(Object.keys(defaults).length ? { defaults } : {}) });
         steps.push({ op: 'wait', for: 'dom-stable', timeoutMs: settleMs });
@@ -491,7 +493,7 @@ function detectRepeatedItemsInPage(arg: { within: string | null }): { container:
     return parts.join(' > ');
   };
   let best: { container: Element; items: Element[]; score: number } | null = null;
-  const all = [root, ...Array.from(root.querySelectorAll('*'))].filter((e) => e.children.length >= 3 && !e.closest('header, nav, footer, [role="navigation"], [role="menu"]'));
+  const all = [root, ...Array.from(root.querySelectorAll('*'))].filter((e) => e.children.length >= 2 && !e.closest('header, nav, footer, [role="navigation"], [role="menu"]'));
   for (const container of all) {
     const groups = new Map<string, Element[]>();
     for (const child of Array.from(container.children)) {
@@ -501,14 +503,28 @@ function detectRepeatedItemsInPage(arg: { within: string | null }): { container:
       groups.set(s, [...(groups.get(s) ?? []), child]);
     }
     for (const items of groups.values()) {
-      if (items.length < 3) continue;
+      if (items.length < 2) continue;
       const text = items.reduce((n, it) => n + ((it as HTMLElement).innerText || '').trim().length, 0);
       if (text < 20) continue;
-      const score = items.length * Math.log(1 + text);
+      // Rich items (a trip card with times, route, train and fares) beat many thin ones (the fare details inside one
+      // card): the score weighs how many distinct text parts an item holds, and a pair needs that richness to count.
+      const leaves = items.reduce((n, it) => n + Array.from(it.querySelectorAll('*')).filter((e) => e.children.length === 0 && ((e as HTMLElement).innerText || '').trim()).length, 0) / items.length;
+      if (items.length === 2 && leaves < 4) continue;
+      const score = items.length * Math.log(1 + text) * Math.log(2 + leaves);
       if (!best || score > best.score) best = { container, items, score };
     }
   }
   if (!best) return null;
+  // Climb to the outermost repeating unit: while every item is the only element child of its own parent (a wrapper),
+  // and those parents are siblings of one kind, the parents are the items.
+  for (let guard = 0; guard < 4; guard += 1) {
+    const current: { container: Element; items: Element[]; score: number } = best;
+    const parents: Array<Element | null> = current.items.map((it) => it.parentElement);
+    if (parents.some((pe: Element | null) => !pe || pe === root || pe.children.length !== 1)) break;
+    const grand: Element | null = parents[0]!.parentElement;
+    if (!grand || parents.some((pe: Element | null) => pe!.parentElement !== grand || sig(pe!) !== sig(parents[0]!))) break;
+    best = { container: grand, items: parents as Element[], score: current.score };
+  }
   const first = best.items[0]!;
   const fields: Array<{ selector: string; text: string; href?: string }> = [];
   const rel = (el: Element): string => {
@@ -539,6 +555,22 @@ const obj = (properties: Record<string, unknown>) => ({ type: 'object' as const,
  * The site's own XHR and fetch requests, one line per method and path (with a count), API-looking calls first.
  * Third-party traffic (analytics, telemetry, chat widgets) and static assets are counted, not listed.
  */
+const DATE_VALUE = /^(\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})$/;
+
+/** Query values and path segments of a URL template that are fixed dates (no placeholder): they go stale. */
+export function fixedDatesIn(template: string): string[] {
+  let u: URL;
+  try {
+    u = new URL(template.replace(/\{\{[^}]+\}\}/g, 'x'));
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  for (const [k, v] of u.searchParams) if (DATE_VALUE.test(v)) out.push(`${k}=${v}`);
+  for (const seg of u.pathname.split('/')) if (DATE_VALUE.test(decodeURIComponent(seg))) out.push(seg);
+  return out;
+}
+
 /**
  * Replace an example value in a URL with a placeholder: as a whole query value or path segment first, anywhere in
  * the path or query last. The origin is never touched. Returns the URL unchanged when the example is not there.
@@ -554,9 +586,11 @@ export function bindInUrl(url: string, example: string, name: string): string {
     // not absolute: bind anywhere
   }
   const variants = Array.from(new Set([example, encodeURIComponent(example), example.replace(/ /g, '+')]));
+  // A date binds every query value equal to it (a one-way search sends the same date as departure and return).
+  const everywhere = DATE_VALUE.test(example);
   for (const v of variants) {
     const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const whole = new RegExp(`([=/])${escaped}(?=[&#/]|$)`);
+    const whole = new RegExp(`([=/])${escaped}(?=[&#/]|$)`, everywhere ? 'g' : '');
     if (whole.test(rest)) return origin + rest.replace(whole, `$1{{${name}}}`);
   }
   for (const v of variants) if (rest.includes(v)) return origin + rest.replace(v, `{{${name}}}`);

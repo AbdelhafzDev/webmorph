@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { discover } from '../src/index.js';
 import { FakeChatClient, type ChatTurnRequest, type ScriptedTurn } from '../src/model/llm.js';
-import { elideOldResults, harnessTools, tokensSpent } from '../src/model/agent.js';
+import { elideOldResults, harnessTools, midpointNudge, tokensSpent } from '../src/model/agent.js';
 import { ToolDefinition, ValidationReport, WebsiteModel } from '../src/schemas/index.js';
 import { startFixtureSite, type FixtureSite } from './fixtures/server.js';
 
@@ -43,6 +43,10 @@ describe('harness tools', () => {
 });
 
 describe('harness token economy', () => {
+  it('words the midpoint note as a push to propose', () => {
+    expect(midpointNudge(12)).toMatch(/half the turn budget is spent and no capability has been kept yet \(12 turns remain\)\. Stop exploring/);
+  });
+
   it('counts cache reads at a tenth of their tokens', () => {
     expect(tokensSpent({ inputTokens: 1000, outputTokens: 200, cacheReadTokens: 50_000 })).toBe(6200);
   });

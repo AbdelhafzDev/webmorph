@@ -317,6 +317,11 @@ fetch('/api/events/digest', { headers: { accept: 'application/json', authorizati
         setTimeout(() => send(200, 'application/json', JSON.stringify(Array.from({ length: n }, (_, i) => ({ time: `${9 + i}:00`, train: `Train ${i + 1}` })))), 2500);
         return;
       }
+      case '/trips': {
+        // Trip cards whose fare rows outnumber the cards: the result item is the card, not a fare row.
+        const card = (dep: string, arr: string, train: string) => `<div class="trip-card"><div class="head"><span class="dep">${dep} Riyadh</span><span class="arr">${arr} Qassim</span><span class="train">Train ${train}</span></div><ul class="fares"><li class="fare"><span>Economy</span><span>90 SAR</span></li><li class="fare"><span>Business</span><span>215 SAR</span></li><li class="fare"><span>Saver</span><span>75 SAR</span></li><li class="fare"><span>Cabin</span><span>900 SAR</span></li></ul></div>`;
+        return html(200, page(base, 'Trips', `<h1>Trips on ${url.searchParams.get('date') ?? 'today'}</h1><div class="trip-list">${card('05:10', '07:37', '86')}${card('08:00', '10:27', '88')}</div>`));
+      }
       case '/framed':
         // A page whose booking form lives in an iframe, as on sites that embed their ticketing app.
         return html(200, page(base, 'Framed', '<h1>Book a trip</h1><iframe src="/app" width="600" height="400" title="Trip finder"></iframe>'));

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BrowserRuntime } from '../src/browser/runtime.js';
-import { BrowseSession, BrowseRefusal, bindInUrl, browseToolDefinitions, summarizeRequests, type WorkflowProposal } from '../src/model/browse.js';
+import { BrowseSession, BrowseRefusal, bindInUrl, browseToolDefinitions, fixedDatesIn, summarizeRequests, type WorkflowProposal } from '../src/model/browse.js';
 import type { NetworkRecord } from '../src/schemas/networkEvidence.js';
 import { generateProgramTool } from '../src/tools/generateProgram.js';
 import { executeTool } from '../src/tools/interpreter.js';
@@ -186,6 +186,42 @@ describe('the model drives the browser (D27)', () => {
       await session.close();
     }
   }, 90_000);
+
+  it('finds the whole result card, not the fare rows inside it, and refuses a program that would send a fixed date', async () => {
+    const session = new BrowseSession(runtime, options());
+    try {
+      await session.open(`${site.baseUrl}/trips?date=2026-11-12&returnDate=2026-11-12&lang=en`);
+      const items = (await session.read({ mode: 'items', selector: null })).items!;
+      expect(items.item).toMatch(/div\.trip-card$/);
+      expect(items.count).toBe(2);
+      expect(items.fields.map((f) => f.selector)).toEqual(expect.arrayContaining(['div.head > span.dep', 'div.head > span.train']));
+      const proposal: WorkflowProposal = {
+        kind: 'search',
+        name: 'find_trips_on',
+        title: 'Trips on a date',
+        description: 'Trips on a date.',
+        entity: 'trip',
+        inputs: [],
+        extract: { kind: 'item-list', item: items.item, fields: [{ name: 'departure', selector: 'span.dep', attr: null }], hrefPattern: null, maxItems: 20 },
+        resultUrlPattern: null,
+        expectedOutcome: 'Trips.',
+        confidence: 0.8,
+        evidence: [],
+      };
+      expect(() => session.buildWorkflowCapability(proposal, site.baseUrl)).toThrow(/always send date=2026-11-12, returnDate=2026-11-12: a fixed date goes stale/);
+      const cap = session.buildWorkflowCapability({ ...proposal, inputs: [{ name: 'travel_date', type: 'string', required: true, description: 'YYYY-MM-DD', example: '2026-11-12', actionIndex: 0, mode: 'value' }] }, site.baseUrl);
+      const nav = (cap.mechanics.program as Array<Record<string, unknown>>).find((s) => s['op'] === 'navigate')!;
+      expect(nav['url']).toBe(`${site.baseUrl}/trips?date={{travel_date}}&returnDate={{travel_date}}&lang=en`);
+    } finally {
+      await session.close();
+    }
+  }, 60_000);
+
+  it('spots fixed dates in a URL template', () => {
+    expect(fixedDatesIn('https://x.test/s?d={{date}}&r=2026-11-12&n=1')).toEqual(['r=2026-11-12']);
+    expect(fixedDatesIn('https://x.test/day/12-11-2026/list')).toEqual(['12-11-2026']);
+    expect(fixedDatesIn('https://x.test/s?d={{date}}&page=2')).toEqual([]);
+  });
 
   it('binds an example as a whole query value or path segment before any other occurrence', () => {
     expect(bindInUrl('https://x.test/s?From=RIY&To=DMM&Lang=en', 'DMM', 'to')).toBe('https://x.test/s?From=RIY&To={{to}}&Lang=en');
