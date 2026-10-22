@@ -63,8 +63,11 @@ Requires Node 20+ and pnpm. Browser stages need Chromium.
 pnpm install
 pnpm exec playwright install chromium --only-shell
 pnpm build
+cp .env.example .env            # put ANTHROPIC_API_KEY in .env (gitignored); the CLI loads it at startup
 node dist/cli.js discover https://example.com --max-pages 30
 ```
+
+Without a key the pipeline still runs end to end on its deterministic path and records that the model was unavailable.
 
 Then review, publish and serve:
 
