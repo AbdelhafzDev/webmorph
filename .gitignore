@@ -1,7 +1,7 @@
 node_modules/
 dist/
 .webmorph/
-schemas/
+/schemas/
 *.log
 .DS_Store
 .scratch/
