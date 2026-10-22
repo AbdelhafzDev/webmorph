@@ -14,7 +14,8 @@ Decisions that the plan left open are recorded in [decisions.md](decisions.md).
 | 5 | Documentation discovery and network evidence | Stages 1, 7 | Done |
 | 6 | Recording (Mode A) and workflows | Section 6, Stage 9 | Done |
 | 7 | Studio (review UI) | Section 3 | Done |
-| 8 | Skill generator (Layer 3) | Section 8 | Next |
+| 8 | Skill generator (Layer 3) | Section 8 | Done |
+| 9 | Model harness: the model explores and proposes, code validates | D26 | Done |
 
 ## Phase 0: Foundations
 
@@ -98,6 +99,12 @@ The third capability layer of the plan: compose a site's published tools into a 
 - Published through the registry like tools, so an operator approves a skill before agents see it, and served by the MCP server as a resource beside the tools.
 
 Acceptance: the fixture site yields a skill that names its search, list and detail tools with the result-to-detail hand-off, and an agent following only the skill completes a search-then-detail task against the fixture.
+
+Delivered: `SkillDefinition` (stage 11, optional, after validation) with model-written guidance grounded by code (only validated tools and real inputs, examples computed from validation runs, instruction-like text dropped) and a template fallback; `webmorph skill <siteId>` renders `SKILL.md`, `tools.json` and `mcp.json`. Known gaps: the skill is not yet gated by the registry (an operator publishes tools, not skills), not served as an MCP resource, and the search-then-detail acceptance task has not been run by a live agent.
+
+## Phase 9: Model harness
+
+Decision D26: the model is the harness. Delivered: a tool-using loop in stage 8 (`src/model/agent.ts`) with evidence reads, policed HTTP and browser reads, entity and capability revisions, and capability proposals that are generated into tools and replayed before they are kept; budgets for turns, reads, inspections, proposals and tokens; a full record under `WebsiteModel.agent`; model-chosen inspection plans in stage 4 with the heuristic plan as fallback and ceiling; `FakeChatClient` for scripted end-to-end tests. Known gaps: no live run with an Anthropic key yet; stage 6 probe selection is still heuristic; proposals are validated with one replay run rather than the full `validationRuns`.
 
 ## Measurement before a release
 

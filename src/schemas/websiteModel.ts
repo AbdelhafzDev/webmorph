@@ -136,8 +136,29 @@ export const Capability = z.object({
   authRequirement: z.enum(['none', 'session']),
   mechanics: CapabilityMechanics,
   evidence: z.array(EvidenceRef),
+  source: z.enum(['heuristic', 'model']).optional().describe('model: proposed by the harness and kept only after a generated tool validated by replay (D26).'),
 });
 export type Capability = z.infer<typeof Capability>;
+
+/** What the stage 8 model harness did: every tool call, every proposal and its verdict, and what it cost. */
+export const AgentRecord = z.object({
+  applied: z.boolean(),
+  model: z.string().optional(),
+  turns: z.number().int().nonnegative(),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  cacheReadTokens: z.number().int().nonnegative().optional(),
+  toolCalls: z.array(z.object({ turn: z.number().int(), tool: z.string(), ok: z.boolean(), note: z.string() })),
+  proposals: z.object({
+    accepted: z.array(z.string()).describe('Capability names the model proposed that validated by replay.'),
+    rejected: z.array(z.object({ name: z.string(), reason: z.string() })),
+  }),
+  revisions: z.array(z.string()),
+  finished: z.boolean().describe('The model called finish; false when a budget ran out or the model stopped on its own.'),
+  stoppedBecause: z.string().optional(),
+  error: z.string().optional(),
+});
+export type AgentRecord = z.infer<typeof AgentRecord>;
 
 export const WebsiteModelData = z.object({
   site: z.object({
@@ -171,6 +192,7 @@ export const WebsiteModelData = z.object({
     rejected: z.array(z.string()).describe('Model suggestions dropped because they were not grounded in evidence.'),
     error: z.string().optional(),
   }),
+  agent: AgentRecord.optional().describe('Present when the stage 8 model harness ran (D26).'),
 });
 export type WebsiteModelData = z.infer<typeof WebsiteModelData>;
 

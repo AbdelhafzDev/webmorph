@@ -4,7 +4,7 @@ import { JobRunner, type Logger, silentLogger } from './core/job.js';
 import { newJobId, siteIdFromOrigin } from './core/ids.js';
 import { normalizeUrl, originOf } from './net/url.js';
 import { InvalidTargetError } from './core/errors.js';
-import { stage0Scope, stage1Docs, stage2Sitemap, stage3Crawl, stage4Plan, stage5Inspect, stage6Interact, stage7Network, stage8Model, stage9Workflows, stage10Generate, stage10Validate, type DiscoveryInput } from './stages/index.js';
+import { stage0Scope, stage1Docs, stage2Sitemap, stage3Crawl, stage4Plan, stage5Inspect, stage6Interact, stage7Network, stage8Model, stage9Workflows, stage10Generate, stage10Validate, stage11Skill, type DiscoveryInput } from './stages/index.js';
 import type { StageDefinition } from './core/job.js';
 import type { ApiCredential } from './schemas/siteConfig.js';
 
@@ -64,7 +64,10 @@ export const PHASE5_STAGES: StageDefinition<DiscoveryInput>[] = [stage0Scope, st
 /** Phase 6 adds workflows reconstructed from recorded sessions. */
 export const PHASE6_STAGES: StageDefinition<DiscoveryInput>[] = [stage0Scope, stage1Docs, stage2Sitemap, stage3Crawl, stage4Plan, stage5Inspect, stage6Interact, stage7Network, stage8Model, stage9Workflows, stage10Generate, stage10Validate];
 
-export const DEFAULT_STAGES = PHASE6_STAGES;
+/** Phase 8 adds the skill: a site's validated tools composed with guidance for an agent (Layer 3). */
+export const PHASE8_STAGES: StageDefinition<DiscoveryInput>[] = [...PHASE6_STAGES, stage11Skill];
+
+export const DEFAULT_STAGES = PHASE8_STAGES;
 
 export async function discover(options: DiscoverOptions): Promise<DiscoverResult> {
   const normalized = normalizeUrl(options.startUrl, undefined, { keepQuery: true });
@@ -103,6 +106,8 @@ export * from './html/forms.js';
 export * from './model/naming.js';
 export * from './model/facts.js';
 export * from './model/llm.js';
+export * from './model/agent.js';
+export * from './model/skill.js';
 export * from './tools/jsonschema.js';
 export * from './tools/generate.js';
 export * from './tools/sample.js';

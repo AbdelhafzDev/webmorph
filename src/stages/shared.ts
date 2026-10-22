@@ -24,7 +24,7 @@ export interface DiscoveryInput {
   /** Browser stage options. */
   browser?: BrowserOptions;
   /** Model-assisted enrichment options (Stage 8). */
-  model?: { enabled?: boolean; modelId?: string; client?: ModelClient };
+  model?: { enabled?: boolean; modelId?: string; client?: ModelClient; harness?: boolean };
 }
 
 export interface BrowserOptions {
@@ -68,6 +68,11 @@ export const DEFAULT_BUDGET: Budget = {
   maxDocRequests: 25,
   maxNetworkRecords: 500,
   maxJsonPeekBytes: 262_144,
+  maxAgentTurns: 24,
+  maxAgentFetches: 20,
+  maxAgentInspections: 6,
+  maxAgentProposals: 12,
+  maxAgentTokens: 600_000,
 };
 
 export const DEFAULT_PROHIBITED_ACTIONS = ['purchase', 'payment', 'delete', 'account-change', 'message-send'];

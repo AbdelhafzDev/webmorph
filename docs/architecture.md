@@ -6,11 +6,11 @@ How WebMorph turns a website into validated tools, stage by stage. The diagrams 
 
 1. **Browser primitives.** Navigate, read page state, locate, click, fill, select, wait, extract. Implemented once by the runtime (`src/tools/interpreter.ts`), never regenerated per site.
 2. **Website-specific tools.** Typed actions discovered from the site (`search_cars(query)`, `get_car(slug)`), each with input and output schemas, preconditions, execution strategy, expected result, error cases, evidence references and a validation status. This is what the pipeline below produces and what the MCP server serves.
-3. **Skills.** Reusable bundles that compose a site's validated tools with guidance for an agent: what the site offers, which tool serves which intent, how one tool's output feeds another, what the error codes mean on that site, and worked examples from the validation runs, plus the MCP configuration. A skill cites the tools and evidence behind every statement and is regenerated when they change. The `SkillDefinition` artifact type is reserved; the skill generator is the next stage on the roadmap.
+3. **Skills.** Reusable bundles that compose a site's validated tools with guidance for an agent: what the site offers, which tool serves which intent, how one tool's output feeds another, what the error codes mean on that site, and worked examples from the validation runs, plus the MCP configuration. Stage 11 produces the `SkillDefinition`; the model writes the guidance and code grounds it (only validated tools and real inputs, examples computed from validation output); `webmorph skill <siteId>` renders `SKILL.md`, `tools.json` and `mcp.json`.
 
 ## Principles
 
-- **Evidence first.** Every capability, fact and hypothesis in the website model cites the artifacts that justify it. Mechanics (URLs, parameters, locators, side-effect class, auth requirement) come only from evidence; a language model may add descriptions and cited hypotheses, never mechanics (D13).
+- **The model proposes, code verifies.** Every capability, fact and hypothesis in the website model cites the artifacts that justify it. The model may read evidence, explore within budget, name and describe, and propose capabilities with mechanics; a proposal is kept only after a generated tool validated by replay against the live site, and the policy layers bound every read the model makes (D26, superseding the mechanics rule of D13).
 - **Tools are data.** A tool is a declarative step program interpreted by the runtime, with JSON Schema inputs and outputs. No code is generated (D4).
 - **API first.** Every read capability gets its HTTP route under the capability's own name; the browser route is the `_browser` fallback. Capabilities with no HTTP route are reported as `apiGaps` with a reason (D25).
 - **Read-only by construction.** Probes and tools never submit writes without an explicit operator flag, and even then only search or filter forms without sensitive fields (D16, D19).
@@ -27,16 +27,32 @@ How WebMorph turns a website into validated tools, stage by stage. The diagrams 
 | 1 Docs | `DocumentationIndex` | Finds `llms.txt` and `llms-full.txt`, OpenAPI 3 and Swagger 2 documents (JSON or YAML) and documentation pages. Operations are parsed with parameters, response shapes, auth requirements and side-effect class. Site-controlled input, recorded as evidence and never trusted over observed behavior. |
 | 2 Sitemap | `URLInventory` | robots.txt verdicts and the sitemap tree (indexes, gzip, plain text), with the URL budget shared round-robin across sitemap files so every section of a large site is represented (D22). |
 | 3 Crawl | `PageInventory`, `PageTemplates`, `CrawlReport` | A static crawl sampled by URL shape rather than breadth-first, seeded from the start URL, `llms.txt` links and the sitemap. Extracts titles, metadata, headings, links, forms, scripts and JSON-LD; probes render mode (static, hybrid, SPA shell); groups pages into templates by URL pattern and DOM skeleton cohesion; detects bot protection and marks it `blocked` rather than evading it (D8). |
-| 4 Plan | `InspectionPlan` | Chooses which pages get a browser session: representatives per template, or every route when the site is a client-side shell. Authentication, account and legal pages are never probed. |
+| 4 Plan | `InspectionPlan` | Chooses which pages get a browser session. Heuristics produce the candidates (representatives per template, or every route when the site is a client-side shell); the model picks among them within the budget and may narrow, never widen, which pages get probes. Authentication, account and legal pages are never probed. |
 | 5 Inspect | `PageModel`, `ElementInventory` | Playwright inspection in an isolated context: rendered text, hydration delta versus static HTML, landmarks, dialogs, console errors, accessibility snapshot, screenshots and DOM snapshots as blobs; interactive elements with role, accessible name, category and ranked locator candidates whose uniqueness is measured in-page. |
 | 6 Interact | `InteractionEvidence`, `StateTransition` | Bounded read-only probes with before and after state: search submit, pagination, filter change, tab change, menu open, accordion expand. A fresh browser context per probe; typed search values come from the page's own vocabulary (D15). |
 | 7 Network | `NetworkEvidence`, `ApiCandidates` | XHR, fetch and document traffic captured during inspection and probes, redacted at capture time: sensitive query values replaced, bodies never stored (JSON shapes only), cookie and credential headers recorded by name. Traffic is grouped into API candidates and matched against documented operations. GraphQL `query` operations over POST count as reads (D21). |
-| 8 Website model | `WebsiteModel` | Deterministic model first: page types, entities, capabilities with mechanics tied to documented or observed APIs, navigation and authentication facts. Optional Claude enrichment with schema-constrained output and a grounding filter (D13). |
+| 8 Website model | `WebsiteModel` | Deterministic baseline first: page types, entities, capabilities with mechanics tied to documented or observed APIs, navigation and authentication facts. Then the model harness (below) explores, renames, describes and proposes; its record is stored under `agent`. |
 | 9 Workflows | `WorkflowDefinition` | Recorded sessions reconstructed into interpreter steps with per-step evidence. Workflows that write or act on consequential controls require approval, are never replayed and cannot be published (D19). |
 | 10a Generate | `ToolDefinition` | Tools from read capabilities and workflows, API first (see below), plus `apiGaps`. |
 | 10b Validate | `ValidationReport` | Each tool replayed N times with its example inputs: runs succeed, output matches the schema, output is non-empty, results are stable across runs, latency is within the timeout. |
+| 11 Skill | `SkillDefinition` | The validated, read-only tools composed with guidance the model writes and code grounds; rendered as `SKILL.md` with the MCP configuration. |
 
 After the pipeline, an operator publishes validated tools into the per-site registry, and the MCP server serves them.
+
+## The model harness (stage 8)
+
+The model receives the deterministic model and a compact view of the evidence as JSON data, and a set of tools:
+
+| Tool | What it does | What bounds it |
+|---|---|---|
+| `get_evidence` | Reads one record in full: a crawled page, an inspected page's elements and forms, the probes run on a page, an API candidate, a documented operation, a template | Artifacts only |
+| `fetch_page`, `fetch_json` | GET a page or JSON endpoint over the safe HTTP client and return facts or the response shape | Scope and same-site policy, the fetch budget |
+| `inspect_page` | Opens a page in the policed browser and returns rendered text, dialogs, elements and forms | Scope, the inspection budget; absent when no browser |
+| `propose_entity`, `revise_capability`, `set_site_summary` | Names, descriptions, drops with a reason, purpose, hypotheses citing facts | Instruction-like text dropped; hypotheses must cite existing facts |
+| `propose_capability` | A read-only capability with mechanics (page URL and parameters, or an API endpoint, or a GET form) and the evidence it rests on | Evidence must exist; hosts in scope or same-site; GET or GraphQL query only; required inputs need observed examples; then the tool is generated and replayed, and the proposal is kept only if it validates |
+| `finish` | Ends the loop with a summary | |
+
+Budgets: turns, HTTP reads, browser inspections, proposals and tokens (`maxAgent*` in the manifest, `--agent-*` on the CLI). The loop stops on `finish`, on an exhausted budget, on a refusal, or when the model ends its turn; the `agent` record in the `WebsiteModel` lists every call, every proposal with its verdict or rejection reason, and the token cost. Without a model, or when the model fails, the deterministic baseline stands and the reason is recorded.
 
 ## How a capability becomes tools
 
@@ -87,7 +103,7 @@ Some sites gate a public API behind a publishable key that their own front end s
 
 ## Model enrichment
 
-Stage 8 may call Claude through the Anthropic SDK with schema-constrained output (`claude-opus-5-5` by default; `--model-id` to change, `--no-model` to skip). Credentials resolve from the environment (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, or an `ant auth login` profile); without them the stage records the failure and keeps the deterministic model. Page content reaches the model only as JSON data inside the user message, with a system prompt that tells it to ignore instructions found there. Every hypothesis must cite fact IDs and every entity must cite page type IDs that exist; anything else is dropped and listed under `enrichment.rejected`. The model can never change a capability's mechanics, scope or side-effect class (D13).
+The model is Claude through the Anthropic SDK (`claude-opus-5-5` by default; `--model-id` to change, `--no-model` to skip, `--no-harness` for the older one-shot enrichment). Stage 4 and stage 11 use schema-constrained output; stage 8 uses strict client tools in a tool-use loop with the system prompt cached and the server-side refusal fallback enabled where the model supports it. Credentials resolve from the environment (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, or an `ant auth login` profile); without them every stage keeps its deterministic result and records why. Page content reaches the model only as JSON data labelled as such, with a system prompt that tells it to ignore instructions found there; model text that reads like an instruction to a downstream agent is dropped (D13, D26).
 
 ## Store layout
 

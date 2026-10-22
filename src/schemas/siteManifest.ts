@@ -39,6 +39,12 @@ export const Budget = z.object({
   maxDocRequests: z.number().int().positive().default(25),
   maxNetworkRecords: z.number().int().positive().default(500),
   maxJsonPeekBytes: z.number().int().positive().default(262_144),
+  // Model harness (D26). Defaults keep older manifests parseable.
+  maxAgentTurns: z.number().int().positive().default(24).describe('Model turns in the stage 8 harness loop.'),
+  maxAgentFetches: z.number().int().nonnegative().default(20).describe('Pages and JSON endpoints the model may read over HTTP during stage 8.'),
+  maxAgentInspections: z.number().int().nonnegative().default(6).describe('Pages the model may open in the browser during stage 8.'),
+  maxAgentProposals: z.number().int().nonnegative().default(12).describe('Capability proposals the model may submit for validation.'),
+  maxAgentTokens: z.number().int().positive().default(600_000).describe('Input plus output tokens the harness may spend before it stops.'),
 });
 export type Budget = z.infer<typeof Budget>;
 

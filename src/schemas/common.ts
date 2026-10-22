@@ -39,6 +39,7 @@ export const StageId = z.enum([
   'stage9-workflows',
   'stage10-generate',
   'stage10-validate',
+  'stage11-skill',
 ]);
 export type StageId = z.infer<typeof StageId>;
 

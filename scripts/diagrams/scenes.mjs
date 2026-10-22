@@ -165,8 +165,8 @@ function pipeline() {
   const lanes = [
     { y: 70, caption: 'Deterministic discovery  ·  HTTP only, no browser, no model', color: '#e7f5ff' },
     { y: 70 + (LANE_H + LANE_GAP), caption: 'Browser evidence  ·  Playwright behind the policy proxy, read-only probes', color: '#ebfbee' },
-    { y: 70 + 2 * (LANE_H + LANE_GAP), caption: 'Website model  ·  deterministic first; facts cite evidence, hypotheses cite facts', color: '#fff9db' },
-    { y: 70 + 3 * (LANE_H + LANE_GAP), caption: 'Tools  ·  data, not code; API first; validated against the live site before publishing', color: '#fff4e6' },
+    { y: 70 + 2 * (LANE_H + LANE_GAP), caption: 'Website model  ·  deterministic baseline, then the model harness explores and proposes; code validates (D26)', color: '#fff9db' },
+    { y: 70 + 3 * (LANE_H + LANE_GAP), caption: 'Tools and skill  ·  data, not code; API first; validated against the live site before publishing', color: '#fff4e6' },
   ];
   const laneX = X0 - 20;
   const laneW = 4 * (W + GAP) - GAP + 40;
@@ -187,14 +187,14 @@ function pipeline() {
   s.box('s7', bx(3), by(1), W, H, '7  Network\nNetworkEvidence · ApiCandidates\nredacted XHR/fetch capture,\ncredentials by name only', { color: COLORS.green });
 
   s.box('s8', bx(0), by(2), W, H, '8  Website model\nWebsiteModel\npage types, entities, capabilities\nwith mechanics tied to APIs', { color: COLORS.yellow });
-  s.box('llm', bx(1), by(2), W, H, 'Claude enrichment (optional)\npurpose, descriptions, hypotheses;\nungrounded output rejected;\nnever changes mechanics', { color: COLORS.white, dashed: true });
+  s.box('llm', bx(1), by(2), W, H, 'Model harness (Claude)\nreads evidence, explores within budget,\nnames and describes, proposes capabilities;\nkept only after a tool validates by replay', { color: COLORS.violet });
   s.box('s9', bx(2), by(2), W, H, '9  Workflows\nWorkflowDefinition\nrecorded sessions become steps;\nwrites marked, never replayed', { color: COLORS.yellow });
   s.box('rec', bx(3), by(2), W, H, 'Recording (Mode A)\na person drives a browser\nWebMorph owns; values redacted,\nsecrets never leave the page', { color: COLORS.white, dashed: true });
 
   s.box('s10a', bx(0), by(3), W, H, '10a  Generate\nToolDefinition\nHTTP route first, browser fallback,\napiGaps with reasons', { color: COLORS.orange });
   s.box('s10b', bx(1), by(3), W, H, '10b  Validate\nValidationReport\nreplay ×N: runs, schema,\nnon-empty, stable, latency', { color: COLORS.orange });
-  s.box('pub', bx(2), by(3), W, H, 'Publish (operator)\nregistry.json\nsnapshot pinned to job + artifacts;\ndegrades after site changes', { color: COLORS.orange });
-  s.box('mcp', bx(3), by(3), W, H, 'Serve\nMCP server (stdio)\ntyped inputs and outputs,\nstructured results, error codes', { color: COLORS.orange });
+  s.box('pub', bx(2), by(3), W, H, '11  Skill\nSkillDefinition\nvalidated tools + model-written guidance,\nrendered as SKILL.md for agents', { color: COLORS.violet });
+  s.box('mcp', bx(3), by(3), W, H, 'Publish and serve (operator)\nregistry.json · MCP server (stdio)\nsnapshot pinned to job + artifacts;\ntyped results, error codes', { color: COLORS.orange });
 
   for (const [a, b] of [['s0', 's1'], ['s1', 's2'], ['s2', 's3'], ['s4', 's5'], ['s5', 's6'], ['s6', 's7'], ['s10a', 's10b'], ['s10b', 'pub'], ['pub', 'mcp']]) s.arrow(a, b);
   // lane transitions: down into the gap between lanes, across, down into the next lane's first box
@@ -206,7 +206,7 @@ function pipeline() {
   };
   drop('s3', 's4', 0);
   drop('s7', 's8', 1);
-  s.arrow('s8', 'llm', { dashed: true, bidirectional: true });
+  s.arrow('s8', 'llm', { bidirectional: true });
   s.arrow('rec', 's9');
   drop('s8', 's10a', 2, bx(0) + 70);
   s.arrow('s9', 's10a', { via: [[bx(2) + W / 2, gapY(2)], [bx(0) + W - 60, gapY(2)]], from: 'bottom', to: 'top', dashed: true });

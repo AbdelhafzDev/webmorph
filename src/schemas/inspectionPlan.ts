@@ -18,6 +18,8 @@ export type InspectionEntry = z.infer<typeof InspectionEntry>;
 
 export const InspectionPlanData = z.object({
   strategy: z.enum(['representative', 'browser-first']).describe('browser-first when the static crawl saw an SPA shell.'),
+  planner: z.enum(['heuristic', 'model']).default('heuristic').describe('model: the model chose which candidate pages to inspect (D26); heuristic otherwise, including when the model was unavailable.'),
+  plannerNotes: z.array(z.string()).default([]).describe('What the model said about its choice, or why the heuristic plan was kept.'),
   siteRenderMode: RenderModeKind,
   entries: z.array(InspectionEntry),
   skipped: z.array(z.object({ url: z.string(), reason: z.string() })),

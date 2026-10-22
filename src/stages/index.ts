@@ -10,4 +10,5 @@ export { stage8Model, type ModelOptions } from './stage8-model.js';
 export { stage9Workflows, reconstructWorkflow } from './stage9-workflows.js';
 export { stage10Generate } from './stage10-generate.js';
 export { stage10Validate, validateTool, type ValidateToolOptions } from './stage10-validate.js';
+export { stage11Skill, cliPath } from './stage11-skill.js';
 export * from './shared.js';

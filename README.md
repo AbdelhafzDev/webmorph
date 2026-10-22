@@ -12,9 +12,9 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
 
-WebMorph is a discovery and capability-generation pipeline. Point it at a URL: deterministic stages collect evidence about the site (robots and sitemaps, a sampled crawl, browser inspection, interaction probes, redacted network capture, documentation). A website model is built from that evidence, every read capability becomes a typed tool, each tool is validated by replay against the live site, and an operator publishes the ones that passed to agents over the Model Context Protocol. A skill generator then composes a site's validated tools into a reusable skill an agent can load.
+WebMorph is an LLM harness that turns any website into tools and skills. Deterministic stages collect evidence about a site (robots and sitemaps, a sampled crawl, browser inspection, interaction probes, redacted network capture, documentation). A model then does the understanding: it reads that evidence, explores the site within a budget, names things in the site's own vocabulary, and proposes capabilities with their mechanics. For every proposal the harness generates the tool and replays it against the live site, and keeps only what validates. An operator publishes the validated tools over the Model Context Protocol, and a skill generator composes them with model-written guidance into a `SKILL.md` an agent loads as one unit.
 
-It is not a crawler, a browser recorder, or an autonomous browser agent. Tools are data, not code; HTTP tools come first and browser tools are the fallback; the site's robots rules and rate limits are respected; nothing WebMorph observed is ever replayed on its own authority.
+Three things stay in code whatever the model says: the safety policy (scope, SSRF, read-only methods, robots, credentials by reference), the evidence record, and the replay verdict. Tools are data, not code; HTTP tools come first and browser tools are the fallback; nothing the model proposes exists until a replay proved it.
 
 ## How it works
 
@@ -23,7 +23,7 @@ It is not a crawler, a browser recorder, or an autonomous browser agent. Tools a
   <img alt="The WebMorph pipeline: deterministic discovery, browser evidence, website model, tools" src="docs/diagrams/pipeline.svg">
 </picture>
 
-Eleven stages, four groups. Each stage reads earlier artifacts and writes its own, immutable per job, so a run can be inspected, resumed and diffed. The full stage-by-stage description is in [docs/architecture.md](docs/architecture.md).
+Four groups of stages. Each stage reads earlier artifacts and writes its own, immutable per job, so a run can be inspected, resumed and diffed. The model takes part in three of them: it chooses which pages to inspect (stage 4), it drives the website model (stage 8), and it writes the skill's guidance (stage 11). The full stage-by-stage description is in [docs/architecture.md](docs/architecture.md).
 
 ## What you get
 
@@ -84,11 +84,21 @@ MCP client configuration, for example in Claude Code:
 
 Artifacts land under `.webmorph/sites/<siteId>/jobs/<jobId>/artifacts/`. Add `--json` to `discover` for a machine-readable summary and `-v` to log every fetched page.
 
+## The model harness
+
+Stage 8 starts from the deterministic model and hands it to the model as data, with tools of its own: read an evidence record, read a page or JSON endpoint over the policed HTTP client, open a page in the policed browser, add or rename an entity, revise or drop a capability, record the site's purpose and hypotheses, and propose a capability with its mechanics and the evidence it rests on. Every proposal is generated into tools and replayed against the live site at once; it is kept only when a tool validates, and the model is told why otherwise so it can fix the mechanics. Budgets bound the loop: turns, HTTP reads, browser inspections, proposals and tokens (`--agent-turns`, `--agent-fetches`, `--agent-inspections`, `--agent-proposals`). Every tool call, proposal and verdict is recorded in the `WebsiteModel` artifact under `agent`.
+
+What the model cannot do: widen the scope, send a write, replay a credential it saw, or cite evidence that does not exist. Those checks are code, and they are the same clients the deterministic stages use. Without a model (`--no-model`), or when the model errs or declines, every stage keeps its deterministic result and records why; a run never fails because the model did. `--no-harness` keeps the older one-shot enrichment.
+
+Model calls use the Anthropic SDK (`claude-opus-5-5` by default, `--model-id` to change); credentials resolve from the environment (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, or an `ant auth login` profile). Page content reaches the model only as JSON data labelled as such, and model text that reads like an instruction to a downstream agent is dropped.
+
 ## Skill generator
 
-A tool answers one question; a skill teaches an agent a site. The skill generator takes a site's published tools and produces a `SkillDefinition`: a `SKILL.md`-style guide that says what the site offers, which tool to call for which intent, how inputs relate (a search result's URL feeds the detail tool), what each error code means for that site, and worked examples drawn from the validation runs, together with the MCP server configuration that serves the tools. Like everything else WebMorph emits, a skill cites the evidence and the validated tools behind every statement and is regenerated, never hand-edited, when the site or its tools change.
+A tool answers one question; a skill teaches an agent a site. Stage 11 composes a site's validated tools into a `SkillDefinition`: a `SKILL.md`-style guide with what the site offers, which tool to call for which intent, how one tool's output feeds another (a result URL into the detail tool), what each error code means, worked examples taken from the validation runs, and the MCP configuration that serves the tools. The model writes the guidance; every statement is grounded by code: it may name only validated tools and real inputs, the examples are computed from validation output rather than written, and instruction-like text is dropped. Without a model the skill is rendered from a template.
 
-Status: the `SkillDefinition` artifact type is reserved and the three-layer model is in place; skill generation is the next stage on the [roadmap](docs/roadmap.md).
+```bash
+node dist/cli.js skill <siteId>        # writes SKILL.md, tools.json and mcp.json under .webmorph/sites/<siteId>/skills/<name>/
+```
 
 ## Serving tools to agents
 
@@ -113,19 +123,20 @@ Only published, read-only, session-free tools run. Calls are bounded by a per-si
 - **Evidence is redacted at capture.** Sensitive query values replaced, request bodies never stored, cookie and credential headers recorded by name only.
 - **Credentials are never captured.** A keyed public API becomes an HTTP tool only when the operator configures the key for that host and header; the value lives in one owner-only file and is resolved by name at run time. See [docs/architecture.md#keyed-public-apis](docs/architecture.md#keyed-public-apis) and decision D23.
 - **Polite by default.** Identifying User-Agent, per-host delay, robots.txt honored, `Retry-After` respected.
-- **The model never decides mechanics.** Optional Claude enrichment adds descriptions and cited hypotheses through schema-constrained output; ungrounded output is rejected and listed. Page content reaches the model only as data.
+- **The model proposes; code verifies.** The model may read evidence, explore within budget and propose capabilities, but a capability exists only after a generated tool validated by replay, every proposal must cite evidence that exists, and a skill may name only validated tools. Page content reaches the model only as data, and instruction-like model text is dropped.
 
 ## CLI
 
 | Command | Purpose |
 |---|---|
-| `discover <url>` | Run the pipeline. Budgets: `--max-pages`, `--max-depth`, `--delay-ms`, `--concurrency`, `--inspect-pages`, `--max-probes`, `--validation-runs`. Scope: `--allow-host`, `--ignore-robots` (sites you own), `--allow-private` (test fixtures). Stages: `--no-browser`, `--no-interactions`, `--no-model`, `--no-validate`, `--resume <jobId>`. Credentials: `--api-credential '[name@]host:header=value'`, `--api-credentials-file <json>`. |
+| `discover <url>` | Run the pipeline. Budgets: `--max-pages`, `--max-depth`, `--delay-ms`, `--concurrency`, `--inspect-pages`, `--max-probes`, `--validation-runs`. Model: `--model-id`, `--no-model`, `--no-harness`, `--agent-turns`, `--agent-fetches`, `--agent-inspections`, `--agent-proposals`. Scope: `--allow-host`, `--ignore-robots` (sites you own), `--allow-private` (test fixtures). Stages: `--no-browser`, `--no-interactions`, `--no-validate`, `--resume <jobId>`. Credentials: `--api-credential '[name@]host:header=value'`, `--api-credentials-file <json>`. |
 | `tools <siteId>` | Generated tools with validation verdict and registry status. |
 | `publish <siteId> [names...]` | Approve validated tools into the per-site registry (`--force` for unvalidated, `--job` to choose a job). |
 | `call <siteId> <name> --input <json>` | Call a published tool through the executor. |
 | `run-tool <siteId> <name> --input <json>` | Run any generated tool from a job, published or not. |
 | `disable`, `enable`, `revalidate` | Lifecycle of published tools. |
 | `serve <siteId>` | MCP server over stdio. |
+| `skill <siteId>` | Export the skill: `SKILL.md`, the validated tool contracts and the MCP configuration. |
 | `credentials list\|set\|remove <siteId>` | Operator-configured credentials for keyed public APIs. Never prints values. |
 | `record <siteOrUrl>`, `recordings <siteId>` | Record a workflow by hand in a browser WebMorph owns; list recordings. |
 | `studio` | Local review UI over the artifact store. |
@@ -139,20 +150,21 @@ Only published, read-only, session-free tools run. Calls are bounded by a per-si
 | `DocumentationIndex` | 1 | `llms.txt`, OpenAPI and Swagger operations with parameters, auth and side-effect class, documentation pages |
 | `URLInventory` | 2 | robots.txt verdicts, sitemap tree, every discovered URL with its sources, route candidates |
 | `PageInventory`, `PageTemplates`, `CrawlReport` | 3 | Per-page facts, pages grouped into classified templates, budgets and bot-protection signals |
-| `InspectionPlan` | 4 | Which pages get a browser session and why |
+| `InspectionPlan` | 4 | Which pages get a browser session and why, chosen by the model among the heuristic candidates |
 | `PageModel`, `ElementInventory` | 5 | Rendered page state, dialogs, screenshots; interactive elements with ranked locators |
 | `InteractionEvidence`, `StateTransition` | 6 | Probes with before and after state; navigations and in-page changes |
 | `NetworkEvidence`, `ApiCandidates` | 7 | Redacted traffic; observed endpoints matched against documentation |
-| `WebsiteModel` | 8 | Page types, entities, capabilities with mechanics; facts citing evidence, hypotheses citing facts |
+| `WebsiteModel` | 8 | Page types, entities, capabilities with mechanics; facts citing evidence, hypotheses citing facts; the harness record |
 | `WorkflowDefinition` | 9 | Recorded sessions as replayable steps |
 | `ToolDefinition`, `ValidationReport` | 10 | Tools as declarative programs with `apiGaps`; replay verdicts and reasons |
+| `SkillDefinition` | 11 | The site's validated tools composed with grounded guidance, rendered as `SKILL.md` |
 
 Every artifact carries a common envelope (schema version, site and job IDs, producing stage, source artifacts, provenance) and every type is a Zod schema exportable to JSON Schema.
 
 ## Documentation
 
 - [docs/architecture.md](docs/architecture.md): stages, tool generation, safety, runtime, store layout.
-- [docs/decisions.md](docs/decisions.md): twenty-five numbered architecture decisions and the reasons behind them.
+- [docs/decisions.md](docs/decisions.md): twenty-six numbered architecture decisions and the reasons behind them.
 - [docs/roadmap.md](docs/roadmap.md): the seven delivered phases with their acceptance criteria and known gaps.
 - [docs/comparisons/](docs/comparisons/): evaluations against live sites, such as a 60,000-URL bilingual car marketplace.
 - [plan.md](plan.md) and [plan-review.md](plan-review.md): the original product plan and its review.
@@ -191,7 +203,7 @@ scripts/      diagram generator
 
 ## Status
 
-All seven planned phases are implemented and tested against the fixture site and live sites. Next: the skill generator (Layer 3), a benchmark harness over a fixed site set, typed response schemas for JSON API tools, and scheduled revalidation to report replay stability over time. See [docs/roadmap.md](docs/roadmap.md).
+All planned phases are implemented and tested against the fixture site and live sites, including the model harness (decision D26) and the skill generator. The model path has run end to end with a scripted client in the test suite; a live run with an Anthropic key against a real site is the next step, followed by a benchmark harness over a fixed site set and scheduled revalidation to report replay stability over time. See [docs/roadmap.md](docs/roadmap.md).
 
 ## License
 

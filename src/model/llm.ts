@@ -43,10 +43,34 @@ export interface ModelResponse<T> {
   error?: string;
 }
 
+/** One turn of a tool-using conversation (the stage 8 harness, D26). */
+export interface ChatTurnRequest {
+  system: string;
+  messages: Anthropic.Beta.BetaMessageParam[];
+  tools: Anthropic.Beta.BetaTool[];
+  maxTokens: number;
+  effort?: 'low' | 'medium' | 'high';
+}
+
+export interface ChatTurnResponse {
+  content: Anthropic.Beta.BetaContentBlock[];
+  stopReason: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  error?: string;
+}
+
 export interface ModelClient {
   readonly id: string;
   complete<T>(req: ModelRequest<T>): Promise<ModelResponse<T>>;
+  /** Tool-using turn for the harness loop. Clients without it get the one-shot enrichment instead. */
+  turn?(req: ChatTurnRequest): Promise<ChatTurnResponse>;
 }
+
+/** Models that accept the server-side refusal fallback parameter. */
+const FALLBACK_MODELS = /^claude-(opus-5(-5)?|fable-5(-1)?|sonnet-5-5)(-|$)/;
 
 /** Claude via the official SDK with schema-constrained output. Credentials resolve from the environment. */
 export class AnthropicModelClient implements ModelClient {
@@ -56,6 +80,36 @@ export class AnthropicModelClient implements ModelClient {
   constructor(options: { modelId?: string; apiKey?: string; timeoutMs?: number; client?: Anthropic } = {}) {
     this.id = options.modelId ?? DEFAULT_MODEL_ID;
     this.client = options.client ?? new Anthropic({ ...(options.apiKey ? { apiKey: options.apiKey } : {}), timeout: options.timeoutMs ?? 120_000, maxRetries: 2 });
+  }
+
+  /**
+   * One harness turn: strict client tools, automatic tool choice (forced tool choice is rejected on current
+   * models), adaptive thinking left at the model's default, the system prompt cached, and the server-side
+   * refusal fallback enabled where the model supports it.
+   */
+  async turn(req: ChatTurnRequest): Promise<ChatTurnResponse> {
+    const fallback = FALLBACK_MODELS.test(this.id);
+    const response = await this.client.beta.messages.create({
+      model: this.id,
+      max_tokens: req.maxTokens,
+      system: [{ type: 'text', text: req.system, cache_control: { type: 'ephemeral' } }],
+      messages: req.messages,
+      tools: req.tools,
+      tool_choice: { type: 'auto' },
+      output_config: { effort: req.effort ?? 'medium' },
+      ...(fallback ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {}),
+    });
+    const base = {
+      content: response.content,
+      model: response.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
+      stopReason: response.stop_reason ?? 'unknown',
+    };
+    if (response.stop_reason === 'refusal') return { ...base, error: `model declined: ${response.stop_details?.category ?? 'unspecified'}` };
+    if (response.stop_reason === 'max_tokens') return { ...base, error: 'response truncated at max_tokens' };
+    return base;
   }
 
   async complete<T>(req: ModelRequest<T>): Promise<ModelResponse<T>> {
@@ -90,6 +144,47 @@ export class FakeModelClient implements ModelClient {
     const raw = this.responder(req as ModelRequest<unknown>);
     const parsed = req.schema.safeParse(raw);
     return { parsed: parsed.success ? parsed.data : null, model: this.id, inputTokens: 0, outputTokens: 0, stopReason: 'end_turn', ...(parsed.success ? {} : { error: 'fake response did not match the schema' }) };
+  }
+}
+
+/** A scripted turn for the fake harness client: tool calls to emit, or a final text. */
+export type ScriptedTurn = Array<{ tool: string; input: Record<string, unknown> }> | string;
+
+/**
+ * Test double for the harness loop. Each scripted turn becomes one assistant message of tool_use blocks
+ * (or a final text); every request is recorded so tests can read the tool results the harness returned.
+ */
+export class FakeChatClient implements ModelClient {
+  readonly id = 'fake-agent';
+  readonly requests: ChatTurnRequest[] = [];
+  private turnIndex = 0;
+  constructor(
+    private readonly script: ScriptedTurn[] | ((turn: number, req: ChatTurnRequest) => ScriptedTurn),
+    private readonly responder?: (req: ModelRequest<unknown>) => unknown,
+  ) {}
+
+  async complete<T>(req: ModelRequest<T>): Promise<ModelResponse<T>> {
+    const raw = this.responder ? this.responder(req as ModelRequest<unknown>) : undefined;
+    const parsed = req.schema.safeParse(raw);
+    return { parsed: parsed.success ? parsed.data : null, model: this.id, inputTokens: 0, outputTokens: 0, stopReason: 'end_turn', ...(parsed.success ? {} : { error: 'fake response did not match the schema' }) };
+  }
+
+  async turn(req: ChatTurnRequest): Promise<ChatTurnResponse> {
+    this.requests.push({ ...req, messages: [...req.messages] }); // the loop mutates its array; keep what this turn saw
+    const turn = this.turnIndex++;
+    const scripted = typeof this.script === 'function' ? this.script(turn, req) : this.script[turn] ?? 'done';
+    const base = { model: this.id, inputTokens: 100, outputTokens: 20, cacheReadTokens: 0 };
+    if (typeof scripted === 'string') return { ...base, stopReason: 'end_turn', content: [{ type: 'text', text: scripted, citations: null }] };
+    return { ...base, stopReason: 'tool_use', content: scripted.map((call, i) => ({ type: 'tool_use', id: `call-${turn}-${i}`, name: call.tool, input: call.input })) };
+  }
+
+  /** Tool results the harness sent back after the given turn, by tool_use id. */
+  resultsAfter(turn: number): Array<{ id: string; text: string; isError: boolean }> {
+    const req = this.requests[turn + 1];
+    if (!req) return [];
+    const last = req.messages[req.messages.length - 1];
+    if (!last || last.role !== 'user' || typeof last.content === 'string') return [];
+    return last.content.flatMap((b) => (b.type === 'tool_result' ? [{ id: b.tool_use_id, text: typeof b.content === 'string' ? b.content : JSON.stringify(b.content), isError: Boolean(b.is_error) }] : []));
   }
 }
 

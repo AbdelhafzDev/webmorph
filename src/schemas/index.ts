@@ -15,12 +15,14 @@ import { ValidationReport, VALIDATION_REPORT_VERSION } from './validationReport.
 import { DocumentationIndex, DOCUMENTATION_INDEX_VERSION } from './documentationIndex.js';
 import { NetworkEvidence, NETWORK_EVIDENCE_VERSION, ApiCandidates, API_CANDIDATES_VERSION } from './networkEvidence.js';
 import { WorkflowDefinition, WORKFLOW_DEFINITION_VERSION } from './workflowDefinition.js';
+import { SkillDefinition, SKILL_DEFINITION_VERSION } from './skillDefinition.js';
 export * from './registry.js';
 export * from './siteConfig.js';
 export * from './documentationIndex.js';
 export * from './networkEvidence.js';
 export * from './recording.js';
 export * from './workflowDefinition.js';
+export * from './skillDefinition.js';
 
 export * from './common.js';
 export * from './siteManifest.js';
@@ -55,6 +57,7 @@ export const ARTIFACT_SCHEMAS: Partial<Record<ArtifactType, { schema: z.ZodType;
   NetworkEvidence: { schema: NetworkEvidence, version: NETWORK_EVIDENCE_VERSION },
   ApiCandidates: { schema: ApiCandidates, version: API_CANDIDATES_VERSION },
   WorkflowDefinition: { schema: WorkflowDefinition, version: WORKFLOW_DEFINITION_VERSION },
+  SkillDefinition: { schema: SkillDefinition, version: SKILL_DEFINITION_VERSION },
 };
 
 /** Export every implemented artifact schema as JSON Schema (draft 2020-12). */

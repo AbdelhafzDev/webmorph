@@ -7,7 +7,7 @@ import { FileArtifactStore } from './core/store.js';
 import { readFile } from 'node:fs/promises';
 import { stderrLogger } from './core/job.js';
 import { exportJsonSchemas } from './schemas/index.js';
-import { CrawlReport, PageTemplates, URLInventory, InspectionPlan, PageModel, ElementInventory, InteractionEvidence, WebsiteModel, ToolDefinition, ValidationReport, SiteManifest, DocumentationIndex, ApiCandidates, RecordingSession, WorkflowDefinition } from './schemas/index.js';
+import { CrawlReport, PageTemplates, URLInventory, InspectionPlan, PageModel, ElementInventory, InteractionEvidence, WebsiteModel, ToolDefinition, ValidationReport, SiteManifest, DocumentationIndex, ApiCandidates, RecordingSession, WorkflowDefinition, SkillDefinition } from './schemas/index.js';
 import { credentialRefOf, parseApiCredentialSpec, parseApiCredentialsFile, type ApiCredential, type ApiCredentialRef } from './schemas/siteConfig.js';
 import { errorMessage } from './core/errors.js';
 import { WEBMORPH_VERSION } from './version.js';
@@ -75,7 +75,12 @@ program
   .option('--headed', 'show the browser (debugging)', false)
   .option('--allow-write-probes', 'permit probes that submit non-sensitive POST search or filter forms', false)
   .option('--no-model', 'build the website model from evidence only; no Claude call')
-  .option('--model-id <id>', 'Claude model for enrichment', 'claude-opus-5-5')
+  .option('--model-id <id>', 'Claude model for the harness, planning and the skill', 'claude-opus-5-5')
+  .option('--no-harness', 'one-shot enrichment instead of the stage 8 harness loop (D26)')
+  .option('--agent-turns <n>', 'model turns in the stage 8 harness loop', int, 24)
+  .option('--agent-fetches <n>', 'pages and JSON endpoints the harness may read over HTTP', int, 20)
+  .option('--agent-inspections <n>', 'pages the harness may open in the browser', int, 6)
+  .option('--agent-proposals <n>', 'capability proposals the harness may submit for validation', int, 12)
   .option('--no-validate', 'generate tools but skip replay validation')
   .option('--validation-runs <n>', 'replays per tool during validation', int, 2)
   .option('--api-credential <spec>', 'operator-configured credential for a keyed public API, as [name@]host:header=value (repeatable); stored only in the site config', collect, [] as string[])
@@ -98,8 +103,12 @@ program
         ...(apiCredentials.length ? { apiCredentials } : {}),
         ...(opts.browser === false ? { stages: PHASE1_STAGES } : opts.validate === false ? { stages: PHASE3_STAGES.filter((s) => s.id !== 'stage10-validate') } : {}),
         browser: { interactions: opts.interactions !== false, headed: opts.headed, allowWriteProbes: opts.allowWriteProbes },
-        model: { enabled: opts.model !== false, modelId: opts.modelId },
+        model: { enabled: opts.model !== false, modelId: opts.modelId, harness: opts.harness !== false },
         budget: {
+          maxAgentTurns: opts.agentTurns,
+          maxAgentFetches: opts.agentFetches,
+          maxAgentInspections: opts.agentInspections,
+          maxAgentProposals: opts.agentProposals,
           maxPagesToInspect: opts.inspectPages,
           maxProbesTotal: opts.maxProbes,
           maxProbesPerPage: opts.probesPerPage,
@@ -181,6 +190,14 @@ program
       if (await store.hasArtifact(siteId, jobId, 'ValidationReport')) {
         const vr = await store.readArtifact(siteId, jobId, 'ValidationReport', ValidationReport);
         summary['validation'] = { ...vr.data.stats, tools: vr.data.tools.map((t) => ({ name: t.name, verdict: t.verdict, reason: t.failureReasons[0] })) };
+      }
+      if (await store.hasArtifact(siteId, jobId, 'WebsiteModel')) {
+        const wm = await store.readArtifact(siteId, jobId, 'WebsiteModel', WebsiteModel);
+        if (wm.data.agent) summary['harness'] = { model: wm.data.agent.model, turns: wm.data.agent.turns, toolCalls: wm.data.agent.toolCalls.length, accepted: wm.data.agent.proposals.accepted, rejected: wm.data.agent.proposals.rejected.length, tokens: wm.data.agent.inputTokens + wm.data.agent.outputTokens, stoppedBecause: wm.data.agent.stoppedBecause, error: wm.data.agent.error };
+      }
+      if (await store.hasArtifact(siteId, jobId, 'SkillDefinition')) {
+        const sk = await store.readArtifact(siteId, jobId, 'SkillDefinition', SkillDefinition);
+        summary['skill'] = { name: sk.data.name, ...sk.data.stats, guidance: sk.data.generation.method, rejected: sk.data.generation.rejected.length, error: sk.data.generation.error };
       }
 
       if (opts.json) {
@@ -270,6 +287,10 @@ function printSummary(s: Record<string, unknown>): void {
     lines.push(`validation: ${validation['validated']} validated, ${validation['failed']} failed`);
     for (const t of validation['tools'] as Array<Record<string, unknown>>) lines.push(`  ${String(t['verdict']).padEnd(10)} ${t['name']}${t['reason'] ? `  ${t['reason']}` : ''}`);
   }
+  const harness = s['harness'] as Record<string, unknown> | undefined;
+  if (harness) lines.push(`harness: ${harness['model']}, ${harness['turns']} turn(s), ${harness['toolCalls']} tool call(s), ${(harness['accepted'] as string[]).length} proposal(s) kept (${(harness['accepted'] as string[]).join(', ') || 'none'}), ${harness['rejected']} rejected, ${harness['tokens']} tokens${harness['stoppedBecause'] ? `; ${harness['stoppedBecause']}` : ''}${harness['error'] ? `; error: ${harness['error']}` : ''}`);
+  const skill = s['skill'] as Record<string, unknown> | undefined;
+  if (skill) lines.push(`skill: ${skill['name']} with ${skill['tools']} tool(s) (${skill['httpTools']} HTTP), ${skill['handoffs']} hand-off(s), guidance by ${skill['guidance']}${skill['error'] ? `; model error: ${skill['error']}` : ''}  (export: webmorph skill <siteId>)`);
   const templates = s['templates'] as Array<Record<string, unknown>> | undefined;
   if (templates && templates.length) {
     lines.push('templates:');
@@ -380,6 +401,32 @@ for (const [cmd, status, verb] of [
       process.stdout.write(`${name}: ${entry.status}\n`);
     });
 }
+
+program
+  .command('skill')
+  .description('Export a site\'s skill (SKILL.md, the validated tool contracts and the MCP configuration) from a job.')
+  .argument('<siteId>')
+  .option('-o, --out <dir>', 'artifact store directory', '.webmorph')
+  .option('--job <jobId>', 'job to read; defaults to the latest')
+  .option('--dir <path>', 'directory to write into; defaults to <out>/sites/<siteId>/skills/<name>')
+  .option('--json', 'print the SkillDefinition data instead of writing files', false)
+  .action(async (siteId: string, opts) => {
+    const store = new FileArtifactStore(resolve(opts.out));
+    const jobId: string = opts.job ?? (await latestJobId(store, siteId));
+    const skill = await store.readArtifact(siteId, jobId, 'SkillDefinition', SkillDefinition);
+    if (opts.json) {
+      process.stdout.write(JSON.stringify(skill.data, null, 2) + '\n');
+      return;
+    }
+    const definition = await store.readArtifact(siteId, jobId, 'ToolDefinition', ToolDefinition);
+    const names = new Set(skill.data.tools.map((t) => t.name));
+    const dir = resolve(opts.dir ?? join(store.siteDir(siteId), 'skills', skill.data.name));
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, 'SKILL.md'), skill.data.markdown);
+    await writeFile(join(dir, 'tools.json'), JSON.stringify(skill.data.tools.map((t) => definition.data.tools.find((x) => x.name === t.name)).filter(Boolean), null, 2) + '\n');
+    await writeFile(join(dir, 'mcp.json'), JSON.stringify({ mcpServers: { [skill.data.name]: { command: skill.data.mcp.command, args: skill.data.mcp.args } } }, null, 2) + '\n');
+    process.stdout.write(`wrote ${join(dir, 'SKILL.md')}, tools.json (${names.size} tool(s)) and mcp.json\n`);
+  });
 
 const credentialsCommand = program.command('credentials').description('Operator-configured credentials for keyed public APIs. Values live only in the site config (config.json); nothing here prints them.');
 credentialsCommand
