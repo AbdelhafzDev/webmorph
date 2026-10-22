@@ -168,6 +168,11 @@ describe('the model drives the browser (D27)', () => {
       const late = await executeTool(runtime, tool, { how_many: '4' }, { scope, pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1000 });
       expect(late.ok, late.errorMessage).toBe(true);
       expect((late.output as { count: number; results: Array<{ train: string }> }).results.map((r) => r.train)).toEqual(['Train 1', 'Train 2', 'Train 3', 'Train 4']);
+      // A first load that loses its own race is reloaded once.
+      const flakyTool = { ...tool, program: tool.program.map((s) => (s.op === 'navigate' ? { ...s, url: `${s.url}&flaky=1` } : s)) };
+      const flaky = await executeTool(runtime, flakyTool, { how_many: '2' }, { scope, pageLoadTimeoutMs: 6_000, settleTimeoutMs: 1000 });
+      expect(flaky.ok, flaky.errorMessage).toBe(true);
+      expect((flaky.output as { count: number }).count).toBe(2);
       const none = await executeTool(runtime, tool, { how_many: '0' }, { scope, pageLoadTimeoutMs: 4_000, settleTimeoutMs: 1000 });
       expect(none.ok, none.errorMessage).toBe(true);
       expect((none.output as { count: number }).count).toBe(0);

@@ -506,9 +506,20 @@ async function runStep(page: Page | undefined, step: ToolStep, inputs: Record<st
       } else if (step.for === 'dom-stable') {
         await settle(page, step.timeoutMs);
       } else if (step.selector) {
-        await page.locator(step.selector).first().waitFor({ state: 'attached', timeout: step.timeoutMs }).catch(() => {
-          if (!step.optional) throw new ToolFailure('SITE_CHANGED', `selector ${step.selector} did not appear`);
-        });
+        const appeared = (timeout: number) =>
+          page
+            .locator(step.selector!)
+            .first()
+            .waitFor({ state: 'attached', timeout })
+            .then(() => true)
+            .catch(() => false);
+        let found = await appeared(step.timeoutMs);
+        if (!found && step.reloadOnMiss) {
+          // Same URL, same policy: the reload goes through the context's routing like the first load.
+          await page.reload({ timeout: options.pageLoadTimeoutMs, waitUntil: 'domcontentloaded' }).catch(() => {});
+          found = await appeared(step.timeoutMs);
+        }
+        if (!found && !step.optional) throw new ToolFailure('SITE_CHANGED', `selector ${step.selector} did not appear`);
       }
       return;
     }

@@ -307,7 +307,9 @@ fetch('/api/events/digest', { headers: { accept: 'application/json', authorizati
       case '/late': {
         // Results a client-rendered app shows only after its own calls return: placeholders first, n items later.
         const n = Math.max(0, Math.min(10, Number(url.searchParams.get('n') ?? '3') || 0));
-        return html(200, page(base, 'Late results', `<h1>Departures</h1><ul id="late"><li class="skeleton"></li><li class="skeleton"></li></ul><script>setTimeout(function () { var ul = document.getElementById('late'); ul.innerHTML = ''; for (var i = 1; i <= ${n}; i++) { var li = document.createElement('li'); li.className = 'trip'; li.innerHTML = '<span class="time">' + (8 + i) + ':00</span> <span class="train">Train ' + i + '</span>'; ul.appendChild(li); } }, 2500);</script>`));
+        // flaky=1: the first load in a browsing context loses its own race and never renders; a reload does.
+        const flaky = url.searchParams.get('flaky') === '1';
+        return html(200, page(base, 'Late results', `<h1>Departures</h1><ul id="late"><li class="skeleton"></li><li class="skeleton"></li></ul><script>${flaky ? "if (!sessionStorage.getItem('loaded')) { sessionStorage.setItem('loaded', '1'); } else " : ''}setTimeout(function () { var ul = document.getElementById('late'); ul.innerHTML = ''; for (var i = 1; i <= ${n}; i++) { var li = document.createElement('li'); li.className = 'trip'; li.innerHTML = '<span class="time">' + (8 + i) + ':00</span> <span class="train">Train ' + i + '</span>'; ul.appendChild(li); } }, 2500);</script>`));
       }
       case '/framed':
         // A page whose booking form lives in an iframe, as on sites that embed their ticketing app.
