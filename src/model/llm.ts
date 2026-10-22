@@ -5,6 +5,7 @@ import type { WebsiteModelData } from '../schemas/websiteModel.js';
 import type { PageInventory } from '../schemas/pageInventory.js';
 import type { PageModel } from '../schemas/pageModel.js';
 import { shortHash } from '../core/ids.js';
+import { hostnameOf, sameSite } from '../net/url.js';
 import { snake } from './naming.js';
 
 export const DEFAULT_MODEL_ID = 'claude-opus-5-5';
@@ -258,9 +259,35 @@ export function buildEnrichmentPayload(input: EnrichmentInput): string {
 
 /** Text written by the model that reads like an instruction to a downstream agent is dropped. */
 const INJECTION_LIKE = /(ignore (all|any|the|previous|prior)|disregard|you must|you should now|system prompt|as an ai|do not tell|forget (all|your)|new instructions|<\/?script|http:\/\/|https:\/\/)/i;
+const URL_LIKE = /https?:\/\/[^\s<>()"'\]]+/gi;
 
 export function acceptableText(s: string): boolean {
   return s.trim().length > 0 && !INJECTION_LIKE.test(s) && !/[\r\n]/.test(s.trim());
+}
+
+/**
+ * acceptableText for prose about one site: URLs on the site's own origin, or on any host under its registrable
+ * domain, are allowed (a skill may name the site it is about); other URLs and the instruction patterns still reject.
+ */
+export function acceptableTextFor(s: string, origin: string): boolean {
+  let siteHost: string;
+  try {
+    siteHost = hostnameOf(origin);
+  } catch {
+    return acceptableText(s);
+  }
+  const stripped = s.replace(URL_LIKE, (match) => {
+    // Sentence punctuation after a URL belongs to the prose, not the URL.
+    const trailing = /[.,;:!?]+$/.exec(match)?.[0] ?? '';
+    const url = match.slice(0, match.length - trailing.length);
+    try {
+      const host = hostnameOf(url);
+      return (host === siteHost || sameSite(host, siteHost) ? '[site url]' : url) + trailing;
+    } catch {
+      return match;
+    }
+  });
+  return acceptableText(stripped);
 }
 
 export interface MergeResult {

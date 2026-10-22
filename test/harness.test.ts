@@ -142,6 +142,59 @@ describe('stage 8 model harness (D26)', () => {
     expect((v.runs[0]!.output as { data: Array<{ name: string }> }).data[0]!.name).toBe('Product 6');
   }, 240_000);
 
+  it('refuses fixed-page proposals unless a listing returns several results, reminds the model two turns before the budget, drops orphan entities and writes a fallback purpose when finish never comes', async () => {
+    const base = site.baseUrl;
+    let payload: ReturnType<typeof payloadOf> | undefined;
+    const fixed = (name: string, kind: string, mechanics: Record<string, unknown>) => ({
+      kind, name, title: name.replace(/_/g, ' '), description: 'One page, no inputs.', entity: null, inputs: [],
+      mechanics: { navigateUrl: null, pathTemplate: null, queryParams: [], resultLinkPattern: null, formId: null, fieldElementId: null, api: null, ...mechanics },
+      evidence: [{ artifactType: 'PageInventory', refId: `${base}/` }], expectedOutcome: 'Links or a document.', confidence: 0.8,
+    });
+    const script = (turn: number, req: ChatTurnRequest): ScriptedTurn => {
+      payload ??= payloadOf(req);
+      if (turn === 0) {
+        const getPost = payload.capabilities.find((c) => c.name === 'get_post')!;
+        return [
+          { tool: 'revise_capability', input: { capabilityId: getPost.capabilityId, name: null, title: null, description: null, entity: null, drop: true, reason: 'Two blog posts and no index; not worth a tool.' } },
+          // A detail over one fixed JSON document: refused before any replay.
+          { tool: 'propose_capability', input: fixed('get_catalog_snapshot', 'detail', { api: { method: 'GET', urlTemplate: `${base}/api/products`, queryParams: [], graphql: null } }) },
+          // A listing over one fixed page that yields six result links: kept.
+          { tool: 'propose_capability', input: fixed('list_home_products', 'list', { navigateUrl: `${base}/`, resultLinkPattern: '^/products/\\d+$' }) },
+          // A listing over one fixed page that validates with two results: refused.
+          { tool: 'propose_capability', input: fixed('list_cars', 'list', { navigateUrl: `${base}/cars`, resultLinkPattern: '^/cars/' }) },
+        ];
+      }
+      return [{ tool: 'get_evidence', input: { kind: 'page', id: `${base}/` } }]; // never finishes
+    };
+    const client = new FakeChatClient(script);
+    const result = await discover({ startUrl: `${base}/`, outDir, allowPrivate: true, model: { client }, budget: { ...budget, maxAgentTurns: 4, maxPagesToInspect: 1, maxProbesTotal: 0 }, sleep: async () => {} });
+    expect(result.job.status).toBe('completed');
+    const model = (await result.store.readArtifact(result.siteId, result.jobId, 'WebsiteModel', WebsiteModel)).data;
+    const agent = model.agent!;
+    expect(agent).toMatchObject({ turns: 4, finished: false, stoppedBecause: 'turn budget exhausted' });
+    expect(agent.proposals.accepted).toEqual(['list_home_products']);
+    expect(agent.proposals.rejected).toEqual([
+      { name: 'get_catalog_snapshot', reason: expect.stringContaining('no inputs') },
+      { name: 'list_cars', reason: expect.stringContaining('three or more results on replay; it returned 2') },
+    ]);
+    // The reminder rode along with the results of the turn after which two turns remained, and only then.
+    const notesIn = (i: number) => {
+      const last = client.requests[i]!.messages.at(-1)!;
+      return typeof last.content === 'string' ? [] : last.content.filter((b) => b.type === 'text').map((b) => (b as { text: string }).text);
+    };
+    expect(notesIn(1)).toEqual([]);
+    expect(notesIn(2)).toEqual([expect.stringMatching(/^Harness note: 2 turns of the budget remain\. Call set_site_summary/)]);
+    expect(notesIn(3)).toEqual([]);
+    // The heuristic entity whose only capability was dropped is gone from the model and from the purpose.
+    expect(agent.revisions).toEqual(expect.arrayContaining([expect.stringMatching(/^dropped get_post/), 'dropped entity post: no capability references it', 'reminded the model with 2 turn(s) left', expect.stringContaining('deterministic fallback')]));
+    expect(model.entities.map((e) => e.name)).toEqual(['product']);
+    expect(model.site.purpose.source).toBe('heuristic');
+    expect(model.site.purpose.statement).toContain('about products');
+    expect(model.site.purpose.statement).toContain('list_home_products');
+    expect(model.site.purpose.statement).not.toContain('post');
+    expect(model.capabilities.some((c) => c.name === 'get_post' || c.name === 'list_cars' || c.name === 'get_catalog_snapshot')).toBe(false);
+  }, 240_000);
+
   it('stops at the turn budget and records why, without failing the stage', async () => {
     const client = new FakeChatClient(() => [{ tool: 'get_evidence', input: { kind: 'template', id: 'nope' } }]);
     const result = await discover({ startUrl: `${site.baseUrl}/`, outDir, allowPrivate: true, model: { client }, budget: { ...budget, maxAgentTurns: 2, maxPagesToInspect: 1, maxProbesTotal: 0 }, sleep: async () => {} });

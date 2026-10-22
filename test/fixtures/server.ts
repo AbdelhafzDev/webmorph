@@ -18,6 +18,8 @@ export interface FixtureSite {
   graphql: Array<{ operationName?: string; type: 'query' | 'mutation' }>;
   /** Calls to the keyed API (/api/keyed/products): whether each carried the expected bearer key. */
   keyedCalls: Array<'authorized' | 'unauthorized'>;
+  /** Calls to the public events feed (/api/events): whether each carried the widget's session-like cookie. */
+  eventCalls: Array<'with-cookie' | 'without-cookie'>;
   /** Change behavior at runtime to simulate the site changing under a validated tool. */
   setMode(mode: FixtureMode): void;
   close(): Promise<void>;
@@ -72,11 +74,26 @@ const carPageData = (c: (typeof cars)[number]) => ({
 /** The publishable key the keyed search API expects, as a site would ship it in its JavaScript bundle. */
 export const KEYED_API_KEY = 'Bearer test-key';
 
+/**
+ * A section nothing links to, reached only by a crawl that starts at /events. The listing page sets a cookie named
+ * like a session (what a third-party chat widget does), so the browser sends it with every XHR the page makes; the
+ * endpoints differ in what they need: the feed is public, "mine" needs the cookie, "digest" needs a bearer token.
+ */
+export const EVENTS_WIDGET_COOKIE = 'sessionId';
+export const EVENTS_DIGEST_TOKEN = 'Bearer events-digest-token';
+const events = [
+  { id: 1, title: 'Fixture Expo 2026', date: '2026-11-03', venue: 'Hall A' },
+  { id: 2, title: 'Crawler Meetup', date: '2026-11-10', venue: 'Room 2' },
+  { id: 3, title: 'Schema Summit', date: '2026-11-17', venue: 'Main stage' },
+];
+
+
 export async function startFixtureSite(options: FixtureOptions = {}): Promise<FixtureSite> {
   const requests: string[] = [];
   const posts: string[] = [];
   const graphql: Array<{ operationName?: string; type: 'query' | 'mutation' }> = [];
   const keyedCalls: Array<'authorized' | 'unauthorized'> = [];
+  const eventCalls: Array<'with-cookie' | 'without-cookie'> = [];
   let retryHits = 0;
   let flakyHits = 0;
   let mode: FixtureMode = 'normal';
@@ -90,6 +107,7 @@ export async function startFixtureSite(options: FixtureOptions = {}): Promise<Fi
       res.writeHead(status, { 'content-type': type, ...headers });
       res.end(body);
     };
+    const hasWidgetCookie = () => (req.headers['cookie'] ?? '').split(';').some((c) => c.trim().startsWith(`${EVENTS_WIDGET_COOKIE}=`));
     const html = (status: number, body: string, headers: Record<string, string> = {}) => {
       if (options.blockAll) {
         return send(403, 'text/html', '<html><head><title>Just a moment...</title></head><body>Checking your browser before accessing the site.</body></html>', { server: 'cloudflare', 'cf-mitigated': 'challenge' });
@@ -246,6 +264,24 @@ fetch('/api/products?q=' + encodeURIComponent(${JSON.stringify(q)}), { headers: 
         const q = (url.searchParams.get('q') ?? '').toLowerCase();
         return send(200, 'application/json', JSON.stringify(products.filter((p) => !q || p.name.toLowerCase().includes(q))));
       }
+      case '/events':
+        // The listing sets the widget cookie; the browser then sends it with the three XHRs below.
+        return html(200, page(base, 'Events', `<h1>Events</h1><ul class="grid">${events.map((e) => `<li><a href="/events/${e.id}">${e.title}</a></li>`).join('')}</ul><p>Upcoming fixture events, listed so a crawl that starts here finds a listing whose JSON feed the front end reads with a widget cookie attached.</p>
+<script>fetch('/api/events', { headers: { accept: 'application/json' } }).catch(function () {});
+fetch('/api/events/mine', { headers: { accept: 'application/json' } }).catch(function () {});
+fetch('/api/events/digest', { headers: { accept: 'application/json', authorization: ${JSON.stringify(EVENTS_DIGEST_TOKEN)} } }).catch(function () {});</script>`), { 'set-cookie': `${EVENTS_WIDGET_COOKIE}=visitor-${Date.now()}; Path=/` });
+      case '/api/events': {
+        // Public: the same answer with or without the cookie. An optional limit lets a proposal give it an input.
+        eventCalls.push(hasWidgetCookie() ? 'with-cookie' : 'without-cookie');
+        const limit = Number(url.searchParams.get('limit') ?? events.length);
+        return send(200, 'application/json', JSON.stringify(events.slice(0, limit > 0 ? limit : events.length)));
+      }
+      case '/api/events/mine':
+        // Needs the cookie: a cookie-less replay gets 401 and the tool fails validation with PERMISSION_DENIED.
+        return hasWidgetCookie() ? send(200, 'application/json', JSON.stringify(events.slice(0, 1))) : send(401, 'application/json', '{"error":"session required"}');
+      case '/api/events/digest':
+        // Needs an authorization header: never promotable without an operator-configured credential.
+        return req.headers['authorization'] === EVENTS_DIGEST_TOKEN ? send(200, 'application/json', JSON.stringify(events)) : send(401, 'application/json', '{"error":"token required"}');
       case '/keyed-hop':
         // Redirects the keyed API call to the same server under another hostname: credential headers must not follow.
         res.writeHead(302, { location: `http://fixture.test:${(server.address() as AddressInfo).port}/api/keyed/products?q=product` });
@@ -350,6 +386,12 @@ fetch('/api/products?q=' + encodeURIComponent(${JSON.stringify(q)}), { headers: 
           const other = cars.find((x) => x !== c)!;
           return html(200, page(base, c.title, `<article><h1>${c.title}</h1><p class="price">${c.price} SAR</p><p>A used ${c.make} ${c.model} with ${c.mileage} km on the clock, described at enough length to read as a real listing page. The page inlines its state as JSON the way a framework would.</p><a href="/cars/${other.slug}">Similar car</a></article>`, `<script>window.__PAGE_DATA__ = ${JSON.stringify(carPageData(c))};</script>`));
         }
+        const event = url.pathname.match(/^\/events\/(\d+)$/);
+        if (event) {
+          const e = events.find((x) => x.id === Number(event[1]));
+          if (!e) return html(404, page(base, 'Not found', '<h1>404</h1><p>No such event.</p>'));
+          return html(200, page(base, e.title, `<article><h1>${e.title}</h1><p class="date">${e.date}</p><p>${e.title} takes place at ${e.venue}. A fixture event described at enough length to read as a real detail page for the template classifier and the entity heuristics.</p><a href="/events/${(e.id % events.length) + 1}">Next event</a></article>`));
+        }
         const post = url.pathname.match(/^\/blog\/([a-z0-9-]+)$/);
         if (post) {
           const other = post[1] === 'hello-world-2026' ? 'second-post-2026' : 'hello-world-2026';
@@ -369,6 +411,7 @@ fetch('/api/products?q=' + encodeURIComponent(${JSON.stringify(q)}), { headers: 
     posts,
     graphql,
     keyedCalls,
+    eventCalls,
     setMode: (m) => {
       mode = m;
     },

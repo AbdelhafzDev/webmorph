@@ -108,7 +108,8 @@ export const CapabilityMechanics = z.object({
       specUrl: z.string().optional(),
       candidateId: z.string().optional(),
       authRequired: z.boolean(),
-      credentialed: z.boolean().describe('Observed requests carried credentials WebMorph may not replay; such an API is never promoted.'),
+      credentialed: z.boolean().describe('Observed requests carried credentials. With credentialSource "header" the API is never promoted; with "cookie" a tool is generated and the cookie-less replay decides (D21).'),
+      credentialSource: z.enum(['header', 'cookie']).optional().describe('Copied from the API candidate: an authorization-style header, or only a session-like cookie name.'),
       credentialRef: z.string().optional().describe('Name of the operator-configured credential the observed requests carried as their only credential. The http tool resolves it from the site config at run time; the value is never stored.'),
       responseShape: z.object({ kind: z.enum(['object', 'array', 'other']), keys: z.array(z.string()).optional(), itemKeys: z.array(z.string()).optional() }).optional(),
     })

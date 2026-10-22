@@ -35,7 +35,7 @@ How WebMorph turns a website into validated tools, stage by stage. The diagrams 
 | 9 Workflows | `WorkflowDefinition` | Recorded sessions reconstructed into interpreter steps with per-step evidence. Workflows that write or act on consequential controls require approval, are never replayed and cannot be published (D19). |
 | 10a Generate | `ToolDefinition` | Tools from read capabilities and workflows, API first (see below), plus `apiGaps`. |
 | 10b Validate | `ValidationReport` | Each tool replayed N times with its example inputs: runs succeed, output matches the schema, output is non-empty, results are stable across runs, latency is within the timeout. |
-| 11 Skill | `SkillDefinition` | The validated, read-only tools composed with guidance the model writes and code grounds; rendered as `SKILL.md` with the MCP configuration. |
+| 11 Skill | `SkillDefinition` | The validated, read-only tools composed with guidance the model writes and code grounds: only validated tools and real inputs, instruction-like text dropped, URLs allowed only on the site's own domain, hand-offs listing several inputs split into one per input; rendered as `SKILL.md` with the MCP configuration. |
 
 After the pipeline, an operator publishes validated tools into the per-site registry, and the MCP server serves them.
 
@@ -49,10 +49,10 @@ The model receives the deterministic model and a compact view of the evidence as
 | `fetch_page`, `fetch_json` | GET a page or JSON endpoint over the safe HTTP client and return facts or the response shape | Scope and same-site policy, the fetch budget |
 | `inspect_page` | Opens a page in the policed browser and returns rendered text, dialogs, elements and forms | Scope, the inspection budget; absent when no browser |
 | `propose_entity`, `revise_capability`, `set_site_summary` | Names, descriptions, drops with a reason, purpose, hypotheses citing facts | Instruction-like text dropped; hypotheses must cite existing facts |
-| `propose_capability` | A read-only capability with mechanics (page URL and parameters, or an API endpoint, or a GET form) and the evidence it rests on | Evidence must exist; hosts in scope or same-site; GET or GraphQL query only; required inputs need observed examples; then the tool is generated and replayed, and the proposal is kept only if it validates |
+| `propose_capability` | A read-only capability with mechanics (page URL and parameters, or an API endpoint, or a GET form) and the evidence it rests on | Evidence must exist; hosts in scope or same-site; GET or GraphQL query only; required inputs need observed examples; a cited API candidate credentialed by header is refused, one flagged by a cookie name only is replayed without cookies; a proposal with no inputs is refused unless it is a listing whose replay returns three or more results; then the tool is generated and replayed, and the proposal is kept only if it validates |
 | `finish` | Ends the loop with a summary | |
 
-Budgets: turns, HTTP reads, browser inspections, proposals and tokens (`maxAgent*` in the manifest, `--agent-*` on the CLI). The loop stops on `finish`, on an exhausted budget, on a refusal, or when the model ends its turn; the `agent` record in the `WebsiteModel` lists every call, every proposal with its verdict or rejection reason, and the token cost. Without a model, or when the model fails, the deterministic baseline stands and the reason is recorded.
+Budgets: turns, HTTP reads, browser inspections, proposals and tokens (`maxAgent*` in the manifest, `--agent-*` on the CLI). When two turns remain, the tool results of that turn carry a note asking the model to record the site summary and call `finish`. The loop stops on `finish`, on an exhausted budget, on a refusal, or when the model ends its turn; the `agent` record in the `WebsiteModel` lists every call, every proposal with its verdict or rejection reason, and the token cost. After the loop, entities that no capability references and the model neither added nor renamed are dropped (a heuristic entity whose only capability the model dropped would otherwise leak into the purpose sentence), and when the model never recorded a purpose a deterministic sentence is written from the entities and capabilities it kept; both are listed under `agent.revisions`. Without a model, or when the model fails, the deterministic baseline stands and the reason is recorded.
 
 ## How a capability becomes tools
 
@@ -60,7 +60,7 @@ Budgets: turns, HTTP reads, browser inspections, proposals and tokens (`maxAgent
 
 Three HTTP routes are tried in order:
 
-1. **The site's own JSON API**, documented or observed: `http` then `extract json`. Generated only for public, read-only endpoints (GET, or GraphQL `query` operations over POST, whose declared variables become optional inputs), or for endpoints whose only credential is one the operator configured (D23).
+1. **The site's own JSON API**, documented or observed: `http` then `extract json`. Generated only for read-only endpoints (GET, or GraphQL `query` operations over POST, whose declared variables become optional inputs) that are public, that carry only a credential the operator configured (D23), or whose observed requests were flagged only by a session-like cookie name: that tool sends no cookies, its precondition says so, and the cookie-less replay decides, with a 401 or 403 failing validation as `PERMISSION_DENIED` (D21). An endpoint whose requests carried an authorization-style header gets no tool without a configured credential.
 2. **The structured data a detail page publishes**: JSON-LD, Open Graph and meta tags, embedded JSON state, read over one GET (`html-data`). The embedded objects' keys and observed value kinds are described in the output schema but never enforced by it (D24).
 3. **The result list a listing or search page already contains**: the landing page is read once with the example inputs, and when its HTML holds three or more result links the tool fetches the page and parses them (`html-list`), enriched with price, currency, availability and images from the page's schema.org `ItemList`.
 

@@ -87,8 +87,10 @@ export function buildDeterministicModel(src: ModelSources): WebsiteModelData {
     book.fact(`An ${spec.format} description at ${spec.specUrl}${spec.title ? ` ("${spec.title}")` : ''} documents ${spec.operations.length} operation(s), ${readPublic} read-only without authentication`, [{ artifactType: 'DocumentationIndex', refId: spec.specUrl }]);
   }
   if (src.docs?.data.llms) book.fact(`llms.txt at ${src.docs.data.llms.url} lists ${src.docs.data.llms.sections.reduce((n, s) => n + s.links.length, 0)} link(s)`, [{ artifactType: 'DocumentationIndex', refId: src.docs.data.llms.url }]);
-  for (const c of candidates.filter((x) => x.inScope && x.sideEffectHint === 'read' && !x.credentialed).slice(0, 20)) {
-    book.fact(`The browser called ${c.method} ${c.urlTemplate}${c.queryParams.length ? `?${c.queryParams.join('&')}` : ''} ${c.count} time(s) during discovery (${c.documentedOperationId ? `documented as ${c.documentedOperationId}` : 'undocumented'}${c.configuredCredential ? `; carried the operator-configured credential "${c.configuredCredential}"` : ''})`, [{ artifactType: 'ApiCandidates', refId: c.candidateId }]);
+  // A candidate flagged only by a cookie name may still become a tool; the cookie-less replay decides (D21).
+  const mayReplay = (x: ApiCandidate) => !x.credentialed || x.credentialSource === 'cookie';
+  for (const c of candidates.filter((x) => x.inScope && x.sideEffectHint === 'read' && mayReplay(x)).slice(0, 20)) {
+    book.fact(`The browser called ${c.method} ${c.urlTemplate}${c.queryParams.length ? `?${c.queryParams.join('&')}` : ''} ${c.count} time(s) during discovery (${c.documentedOperationId ? `documented as ${c.documentedOperationId}` : 'undocumented'}${c.configuredCredential ? `; carried the operator-configured credential "${c.configuredCredential}"` : ''}${c.credentialSource === 'cookie' ? '; carried a session-like cookie, not replayed' : ''})`, [{ artifactType: 'ApiCandidates', refId: c.candidateId }]);
   }
   const apiLinker = new ApiLinker(specs, candidates, book);
 
@@ -313,7 +315,7 @@ export function buildDeterministicModel(src: ModelSources): WebsiteModelData {
   if (!src.pageModel) unresolved.push('No browser inspection evidence; capabilities rest on static HTML only');
   if (capabilities.some((c) => c.kind === 'search') && !capabilities.some((c) => c.kind === 'search' && c.mechanics.resultLinkPattern)) unresolved.push('Search results structure could not be tied to a detail page type');
   if (loginPageUrl) unresolved.push('Pages behind authentication were not explored (no session configured)');
-  for (const c of candidates.filter((x) => x.inScope && x.sideEffectHint === 'read' && !x.credentialed && !capabilities.some((cap) => cap.mechanics.api?.candidateId === x.candidateId))) unresolved.push(`Observed API ${c.method} ${c.urlTemplate} is not tied to a capability`);
+  for (const c of candidates.filter((x) => x.inScope && x.sideEffectHint === 'read' && mayReplay(x) && !capabilities.some((cap) => cap.mechanics.api?.candidateId === x.candidateId))) unresolved.push(`Observed API ${c.method} ${c.urlTemplate} is not tied to a capability`);
   for (const c of capabilities.filter((x) => x.kind === 'list' && x.inputs.some((i) => i.enum))) unresolved.push(`Meaning of filter options on ${c.pageUrl} is not verified`);
   disambiguateByLocale(capabilities, src.manifest.data.normalizedStartUrl);
 
@@ -641,7 +643,9 @@ const SUGGEST_PATH = /suggest|autocomplete|typeahead|complete|hint/i;
 /**
  * Ties capabilities to JSON APIs from two kinds of evidence: documented
  * operations and traffic observed while the browser exercised the capability.
- * Credentialed or authenticated APIs are recorded but never promoted.
+ * Authenticated APIs and APIs credentialed by header are recorded but never
+ * promoted; one credentialed only by a cookie name is promoted and settled by
+ * the cookie-less replay (D21).
  */
 class ApiLinker {
   private readonly ops: Array<{ spec: ApiSpec; op: ApiOperation }>;
@@ -697,6 +701,7 @@ class ApiLinker {
         candidateId: gql.candidateId,
         authRequired: false,
         credentialed: gql.credentialed,
+        ...(gql.credentialSource ? { credentialSource: gql.credentialSource } : {}),
         ...(gql.configuredCredential ? { credentialRef: gql.configuredCredential } : {}),
         ...(gql.responseShape ? { responseShape: gql.responseShape } : {}),
       }, `GraphQL ${gql.graphql.operationName} carried the typed query during the search probe`);
@@ -721,6 +726,7 @@ class ApiLinker {
       ...(observed ? { candidateId: observed.candidateId } : {}),
       authRequired: doc && docMatch ? doc.op.authRequired : false,
       credentialed: observed?.credentialed ?? false,
+      ...(observed?.credentialSource ? { credentialSource: observed.credentialSource } : {}),
       ...(observed?.configuredCredential ? { credentialRef: observed.configuredCredential } : {}),
       ...(observed?.responseShape ? { responseShape: observed.responseShape } : {}),
     }, 'search request observed during the search probe');
@@ -745,6 +751,7 @@ class ApiLinker {
       ...(observed ? { candidateId: observed.candidateId } : {}),
       authRequired: doc && docMatch ? doc.op.authRequired : false,
       credentialed: observed?.credentialed ?? false,
+      ...(observed?.credentialSource ? { credentialSource: observed.credentialSource } : {}),
       ...(observed?.configuredCredential ? { credentialRef: observed.configuredCredential } : {}),
       ...(observed?.responseShape ? { responseShape: observed.responseShape } : {}),
     }, 'listing request observed on the listing page');
@@ -768,6 +775,7 @@ class ApiLinker {
       ...(observed ? { candidateId: observed.candidateId } : {}),
       authRequired: doc && docMatch ? doc.op.authRequired : false,
       credentialed: observed?.credentialed ?? false,
+      ...(observed?.credentialSource ? { credentialSource: observed.credentialSource } : {}),
       ...(observed?.configuredCredential ? { credentialRef: observed.configuredCredential } : {}),
       ...(observed?.responseShape ? { responseShape: observed.responseShape } : {}),
     }, 'detail request observed');

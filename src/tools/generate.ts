@@ -183,10 +183,16 @@ const JSON_OUTPUT = {
   additionalProperties: false,
 };
 
-/** HTTP variant of a capability: the site's own JSON API, documented or observed, public and read-only. */
+/**
+ * HTTP variant of a capability: the site's own JSON API, documented or observed, public and read-only. An API whose
+ * observed requests carried only a session-like cookie (no authorization header) is generated too: the tool sends no
+ * cookies, so the replay during validation decides whether the endpoint is public, and a 401 or 403 fails it (D21).
+ */
 export function generateApiTool(cap: Capability, model: WebsiteModelData, options: GenerateOptions): ToolSpec | null {
   const api = cap.mechanics.api;
-  if (!api || api.authRequired || api.credentialed) return null;
+  if (!api || api.authRequired) return null;
+  const cookieOnly = api.credentialed && api.credentialSource === 'cookie';
+  if (api.credentialed && !cookieOnly) return null;
   if (api.method === 'POST' && !api.graphql) return null; // only GraphQL queries are known reads over POST
   if (!model.site.origin || !api.urlTemplate.startsWith('http')) return null;
   const placeholders = api.graphql ? Array.from(JSON.stringify(api.graphql.variables).matchAll(/\{\{([a-zA-Z0-9_]+)\}\}/g)).map((m) => m[1]!) : [];
@@ -213,7 +219,11 @@ export function generateApiTool(cap: Capability, model: WebsiteModelData, option
     outputSchema: JSON_OUTPUT,
     preconditions: [
       { kind: 'scope', detail: `target stays within ${model.site.origin}` },
-      credentialRef ? { kind: 'credential', detail: `operator-configured credential "${credentialRef}" is present in the site config; the endpoint answered with it during discovery` } : { kind: 'no-auth', detail: 'endpoint answered without credentials during discovery' },
+      credentialRef
+        ? { kind: 'credential', detail: `operator-configured credential "${credentialRef}" is present in the site config; the endpoint answered with it during discovery` }
+        : cookieOnly
+          ? { kind: 'no-auth', detail: 'the site\'s front end sent a session-like cookie and no authorization header with this request; the tool sends no cookies, and the cookie-less replay during validation decides whether the endpoint is public' }
+          : { kind: 'no-auth', detail: 'endpoint answered without credentials during discovery' },
       { kind: 'page-reachable', detail: `${api.urlTemplate} answers JSON` },
     ],
     program: [
@@ -223,7 +233,11 @@ export function generateApiTool(cap: Capability, model: WebsiteModelData, option
       { op: 'extract', extractor: { kind: 'json', into: 'data' } },
     ],
     expectedOutcome: `A JSON ${api.responseShape?.kind ?? 'document'} describing ${cap.entity?.replace(/_/g, ' ') ?? 'the result'}${api.graphql ? ` (GraphQL ${api.graphql.operationName})` : ''}`,
-    errorCases: credentialRef ? [...STANDARD_ERRORS, { code: 'PERMISSION_DENIED', when: `the configured credential "${credentialRef}" is missing from the site config, or the endpoint refused it` }] : STANDARD_ERRORS,
+    errorCases: credentialRef
+      ? [...STANDARD_ERRORS, { code: 'PERMISSION_DENIED', when: `the configured credential "${credentialRef}" is missing from the site config, or the endpoint refused it` }]
+      : cookieOnly
+        ? [...STANDARD_ERRORS, { code: 'PERMISSION_DENIED', when: 'the endpoint answered 401 or 403 without the cookie the site\'s front end sent; it is not public after all' }]
+        : STANDARD_ERRORS,
     examples: [{ inputs: exampleInputs(capForSchema), note: 'derived from evidence' }],
     evidence: cap.evidence.filter((e) => e.artifactType === 'DocumentationIndex' || e.artifactType === 'ApiCandidates'),
     status: 'draft',
@@ -427,7 +441,7 @@ export function generateListHttpTool(cap: Capability, model: WebsiteModelData, o
 function apiGapFor(cap: Capability, options: GenerateOptions): ApiGap {
   const base = { capabilityId: cap.capabilityId, name: cap.name };
   const api = cap.mechanics.api;
-  if (api?.credentialed && !api.credentialRef) return { ...base, reason: 'credentialed', detail: `the observed ${api.method} ${api.urlTemplate} carried a credential; a configured credential (webmorph credentials set) would enable it` };
+  if (api?.credentialed && api.credentialSource !== 'cookie' && !api.credentialRef) return { ...base, reason: 'credentialed', detail: `the observed ${api.method} ${api.urlTemplate} carried a credential header; a configured credential (webmorph credentials set) would enable it` };
   if (api?.authRequired) return { ...base, reason: 'credentialed', detail: `${api.urlTemplate} is documented as requiring authentication` };
   if (api && api.method === 'POST' && !api.graphql) return { ...base, reason: 'write', detail: `${api.urlTemplate} is a POST that is not a GraphQL query` };
   if (cap.kind === 'list' || cap.kind === 'search') {

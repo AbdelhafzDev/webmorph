@@ -15,9 +15,12 @@ import type { ArtifactRef } from '../schemas/common.js';
 /**
  * Stage 7: turn the network evidence captured during inspection and probes
  * into API candidates. Candidates are hypotheses for review; nothing here is
- * replayed, and credentialed requests are never promoted. A request whose only
- * credential is a header the operator configured for that host (D23) counts
- * as configured instead: the candidate names the credential, never its value.
+ * replayed. A request that carried an authorization-style header is credentialed
+ * by header and never promoted, unless the header is one the operator configured
+ * for that host (D23): then the candidate counts as configured and names the
+ * credential, never its value. A request flagged only by a session-like cookie
+ * name is credentialed by cookie: it may become a tool, and the cookie-less
+ * replay during validation decides whether the endpoint is public (D21).
  */
 export const stage7Network: StageDefinition<DiscoveryInput> = {
   id: 'stage7-network',
@@ -112,7 +115,10 @@ export const stage7Network: StageDefinition<DiscoveryInput> = {
       const statuses = Array.from(new Set(g.records.map((r) => r.status).filter((s): s is number => s !== undefined))).sort();
       const documentedOperationId = documentedFor(g.method, sample.url);
       const configured = g.records.map((r) => ({ record: r, name: configuredFor(r) }));
-      const credentialed = configured.some(({ record, name }) => record.credentialed && !name);
+      const unexplained = configured.filter(({ record, name }) => record.credentialed && !name).map(({ record }) => record);
+      const credentialed = unexplained.length > 0;
+      // A header anywhere in the group keeps it unpromotable; cookies alone are settled by the replay.
+      const credentialSource: ApiCandidate['credentialSource'] = !credentialed ? undefined : unexplained.some((r) => (r.credentialHeaders ?? []).length > 0) ? 'header' : 'cookie';
       const configuredNames = new Set(configured.map(({ name }) => name).filter((n): n is string => Boolean(n)));
       const configuredCredential = !credentialed && configuredNames.size === 1 ? Array.from(configuredNames)[0] : undefined;
       const gqlSample = g.records.map((r) => r.graphql?.[0]).find((x) => x);
@@ -134,13 +140,14 @@ export const stage7Network: StageDefinition<DiscoveryInput> = {
         responseContentTypes: Array.from(new Set(g.records.map((r) => r.responseContentType).filter((x): x is string => Boolean(x)))),
         ...(sample.responseShape ? { responseShape: sample.responseShape } : {}),
         credentialed,
+        ...(credentialSource ? { credentialSource } : {}),
         ...(configuredCredential ? { configuredCredential } : {}),
         seenOn,
         ...(documentedOperationId ? { documentedOperationId } : {}),
         ...(gqlSample ? { graphql: { operationName: gqlSample.operationName ?? 'anonymous', operationType: gqlSample.operationType, query: gqlSample.query, variableNames: gqlSample.variableNames, ...(gqlSample.variables ? { sampleVariables: gqlSample.variables } : {}) } } : {}),
         sideEffectHint: read ? 'read' : 'write',
         confidence: documentedOperationId && allOk ? 0.8 : allOk ? 0.6 : 0.35,
-        note: `${documentedOperationId ? 'documented and observed' : 'observed only'} during discovery; not replayed${credentialed ? '; carried credentials, never promoted' : configuredCredential ? `; carried the operator-configured credential "${configuredCredential}" (sent at run time, never stored)` : ''}${gqlSample ? `; GraphQL ${gqlSample.operationType}${graphqlRead ? ' (read)' : ''}` : ''}`,
+        note: `${documentedOperationId ? 'documented and observed' : 'observed only'} during discovery; not replayed${credentialSource === 'header' ? '; carried credentials, never promoted' : credentialSource === 'cookie' ? '; carried a session-like cookie and no authorization header: a tool may be generated and the cookie-less replay decides' : configuredCredential ? `; carried the operator-configured credential "${configuredCredential}" (sent at run time, never stored)` : ''}${gqlSample ? `; GraphQL ${gqlSample.operationType}${graphqlRead ? ' (read)' : ''}` : ''}`,
       });
     }
     candidates.sort((a, b) => b.confidence - a.confidence || b.count - a.count);
@@ -149,7 +156,8 @@ export const stage7Network: StageDefinition<DiscoveryInput> = {
       stats: { total: candidates.length, documented: candidates.filter((c) => c.documentedOperationId).length, readOnlyPublic: candidates.filter((c) => c.sideEffectHint === 'read' && !c.credentialed && (c.inScope || c.sameSite)).length },
     };
     const configuredCount = candidates.filter((c) => c.configuredCredential).length;
-    ctx.logger.info(`network: ${all.length} records, ${candidates.length} API candidate(s), ${candidatesData.stats.documented} documented${configuredCount ? `, ${configuredCount} using an operator-configured credential` : ''}`);
+    const cookieOnly = candidates.filter((c) => c.credentialSource === 'cookie').length;
+    ctx.logger.info(`network: ${all.length} records, ${candidates.length} API candidate(s), ${candidatesData.stats.documented} documented${configuredCount ? `, ${configuredCount} using an operator-configured credential` : ''}${cookieOnly ? `, ${cookieOnly} flagged by cookie only (replay decides)` : ''}`);
 
     const sources: ArtifactRef[] = [refTo(manifest), ...(docs ? [refTo(docs)] : [])];
     const common = { siteId: ctx.siteId, jobId: ctx.jobId, stage: 'stage7-network' as const, now: ctx.now, sources };
