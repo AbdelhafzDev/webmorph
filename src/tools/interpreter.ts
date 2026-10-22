@@ -130,6 +130,14 @@ function httpHostsFor(tool: ToolSpec, scope: ScopePolicy): string[] {
 }
 
 /** A locator whose value carries {{input}} placeholders, rendered from the inputs. */
+/** Inputs completed with the `default` of each declared property the caller did not provide. */
+export function withSchemaDefaults(schema: unknown, inputs: Record<string, unknown>): Record<string, unknown> {
+  const properties = (schema as { properties?: Record<string, { default?: unknown }> } | undefined)?.properties ?? {};
+  const out = { ...inputs };
+  for (const [name, prop] of Object.entries(properties)) if ((out[name] === undefined || out[name] === null) && prop?.default !== undefined) out[name] = prop.default;
+  return out;
+}
+
 function renderLocator(locator: LocatorCandidate, inputs: Record<string, unknown>): LocatorCandidate {
   if (!locator.value.includes('{{')) return locator;
   const value = locator.value.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_, name: string) => {
@@ -302,7 +310,9 @@ function extractPageFieldsInPage(arg: { fields: Record<string, { source: string;
  * context. Never throws for expected failures; every outcome is a ToolRunResult
  * with an error code an agent can act on.
  */
-export async function executeTool(runtime: BrowserRuntime | null, tool: ToolSpec, inputs: Record<string, unknown>, options: ExecuteOptions): Promise<ToolRunResult> {
+export async function executeTool(runtime: BrowserRuntime | null, tool: ToolSpec, given: Record<string, unknown>, options: ExecuteOptions): Promise<ToolRunResult> {
+  // An optional input the caller leaves out takes the default its schema declares (a workflow's browsed value).
+  const inputs = withSchemaDefaults(tool.inputSchema, given);
   const now = options.now ?? (() => new Date());
   const startedAt = now();
   const started = Date.now();

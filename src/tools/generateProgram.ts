@@ -14,7 +14,9 @@ export function generateProgramTool(cap: Capability, model: WebsiteModelData, op
   const required: string[] = [];
   const example: Record<string, unknown> = {};
   for (const i of cap.inputs) {
-    properties[i.name] = { type: i.type, ...(i.description ? { description: i.description } : {}), ...(i.enum?.length ? { enum: i.enum } : {}), ...(i.type === 'string' && i.required ? { minLength: 1 } : {}) };
+    // An optional input defaults to the value the browsing session used, so leaving it out replays what was validated.
+    const fallback = !i.required && i.example !== undefined ? { default: i.type === 'integer' ? Number(i.example) : i.example } : {};
+    properties[i.name] = { type: i.type, ...(i.description ? { description: i.description } : {}), ...(i.enum?.length ? { enum: i.enum } : {}), ...(i.type === 'string' && i.required ? { minLength: 1 } : {}), ...fallback };
     if (i.required) required.push(i.name);
     if (i.example !== undefined) example[i.name] = i.type === 'integer' ? Number(i.example) : i.example;
     else if (i.required) example[i.name] = i.type === 'integer' ? 1 : 'test';

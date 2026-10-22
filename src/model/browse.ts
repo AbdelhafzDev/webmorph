@@ -677,9 +677,9 @@ export function browseToolDefinitions(): Anthropic.Beta.BetaTool[] {
           items: obj({
             name: str({ description: 'snake_case input name.' }),
             type: { type: 'string', enum: ['string', 'integer'] },
-            required: { type: 'boolean' },
+            required: { type: 'boolean', description: 'True only for what a caller must choose (what, where, when). Counts, codes and settings that have a sensible value from the session are optional and default to it.' },
             description: str({ description: 'What the input means and accepted values.' }),
-            example: str({ description: 'The exact value used in the session.' }),
+            example: str({ description: 'The exact value used in the session; an optional input defaults to it.' }),
             actionIndex: { type: 'integer', description: 'Index of the recorded action this input parameterizes.' },
             mode: { type: 'string', enum: ['value', 'locator'] },
           }),

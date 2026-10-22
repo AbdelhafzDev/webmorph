@@ -3,7 +3,7 @@ import { BrowserRuntime } from '../src/browser/runtime.js';
 import { BrowseSession, BrowseRefusal, bindInUrl, browseToolDefinitions, fixedDatesIn, summarizeRequests, type WorkflowProposal } from '../src/model/browse.js';
 import type { NetworkRecord } from '../src/schemas/networkEvidence.js';
 import { generateProgramTool } from '../src/tools/generateProgram.js';
-import { executeTool } from '../src/tools/interpreter.js';
+import { executeTool, withSchemaDefaults } from '../src/tools/interpreter.js';
 import { ScopePolicy } from '../src/net/scope.js';
 import type { WebsiteModelData } from '../src/schemas/websiteModel.js';
 import { startFixtureSite, type FixtureSite } from './fixtures/server.js';
@@ -102,6 +102,14 @@ describe('the model drives the browser (D27)', () => {
       expect(out.count).toBe(3);
       expect(out.results.map((r) => r.name)).toEqual(['Product 4', 'Product 5', 'Product 6']);
       expect(out.results[0]!.url).toBe(`${site.baseUrl}/products/4`);
+
+      // Optional, the input declares its browsed value as the default, and a call without it replays that value.
+      const optionalCap = session.buildWorkflowCapability({ ...proposal, name: 'find_trips_default', inputs: [{ ...proposal.inputs[0]!, required: false }] }, site.baseUrl);
+      const optionalTool = generateProgramTool(optionalCap, { ...model, site: { ...model.site, origin: site.baseUrl } }, { pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1500 })!;
+      expect(optionalTool.inputSchema).toMatchObject({ required: [], properties: { category: { default: 'Cheap' } } });
+      const cheap = await executeTool(runtime, optionalTool, {}, { scope, pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1500 });
+      expect(cheap.ok, cheap.errorMessage).toBe(true);
+      expect((cheap.output as { results: Array<{ name: string }> }).results.map((r) => r.name)).toEqual(['Product 1', 'Product 2', 'Product 3']);
     } finally {
       await session.close();
     }
@@ -216,6 +224,12 @@ describe('the model drives the browser (D27)', () => {
       await session.close();
     }
   }, 60_000);
+
+  it('completes inputs with schema defaults, never over a value the caller gave', () => {
+    const schema = { type: 'object', properties: { from: { type: 'string' }, adults: { type: 'integer', default: 1 }, line: { type: 'string', default: 'N' } } };
+    expect(withSchemaDefaults(schema, { from: 'RIY', line: 'E' })).toEqual({ from: 'RIY', adults: 1, line: 'E' });
+    expect(withSchemaDefaults(undefined, { from: 'RIY' })).toEqual({ from: 'RIY' });
+  });
 
   it('spots fixed dates in a URL template', () => {
     expect(fixedDatesIn('https://x.test/s?d={{date}}&r=2026-11-12&n=1')).toEqual(['r=2026-11-12']);
