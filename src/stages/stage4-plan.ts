@@ -7,7 +7,8 @@ import { CrawlReport } from '../schemas/crawlReport.js';
 import { InspectionPlan, INSPECTION_PLAN_VERSION, type InspectionEntry, type InspectionPlanData } from '../schemas/inspectionPlan.js';
 import { makeEnvelope, refTo, type DiscoveryInput } from './shared.js';
 import { z } from 'zod';
-import { AnthropicModelClient, acceptableText, modelErrorMessage, type ModelClient } from '../model/llm.js';
+import { acceptableText, modelErrorMessage, type ModelClient } from '../model/llm.js';
+import { createModelClient } from '../model/provider.js';
 import type { ModelOptions } from './stage8-model.js';
 
 /** What the model may decide about the plan: which candidates to open, and whether to probe them. */
@@ -188,7 +189,7 @@ export const stage4Plan: StageDefinition<DiscoveryInput & { model?: ModelOptions
     // The model chooses among the candidates when it can; the heuristic order is the fallback and the policy ceiling.
     const opts = ctx.input.model ?? {};
     if (opts.enabled !== false && opts.harness !== false && ordered.length > 1) {
-      const client = opts.client ?? new AnthropicModelClient({ modelId: opts.modelId });
+      const client = opts.client ?? createModelClient({ provider: opts.provider, modelId: opts.modelId });
       const choice = await chooseWithModel(client, ordered, startUrl, budget.maxPagesToInspect, templates.data.templates.map((t) => ({ urlPattern: t.urlPattern, kind: t.kind, pageCount: t.pageCount })));
       if ('error' in choice) plannerNotes.push(`heuristic plan kept: ${choice.error}`);
       else {

@@ -107,6 +107,8 @@ export * from './model/naming.js';
 export * from './model/facts.js';
 export * from './model/llm.js';
 export * from './model/agent.js';
+export * from './model/openai.js';
+export * from './model/provider.js';
 export * from './model/skill.js';
 export * from './tools/jsonschema.js';
 export * from './tools/generate.js';

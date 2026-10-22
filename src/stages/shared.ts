@@ -24,7 +24,7 @@ export interface DiscoveryInput {
   /** Browser stage options. */
   browser?: BrowserOptions;
   /** Model-assisted enrichment options (Stage 8). */
-  model?: { enabled?: boolean; modelId?: string; client?: ModelClient; harness?: boolean };
+  model?: { enabled?: boolean; modelId?: string; provider?: 'anthropic' | 'openai'; client?: ModelClient; harness?: boolean };
 }
 
 export interface BrowserOptions {

@@ -11,7 +11,8 @@ import { DocumentationIndex } from '../schemas/documentationIndex.js';
 import { ApiCandidates } from '../schemas/networkEvidence.js';
 import { WebsiteModel, WEBSITE_MODEL_VERSION, type Capability, type WebsiteModelData } from '../schemas/websiteModel.js';
 import { buildDeterministicModel, type ModelSources } from '../model/facts.js';
-import { AnthropicModelClient, buildEnrichmentPayload, Enrichment, ENRICHMENT_SYSTEM, mergeEnrichment, modelErrorMessage, type ModelClient } from '../model/llm.js';
+import { buildEnrichmentPayload, Enrichment, ENRICHMENT_SYSTEM, mergeEnrichment, modelErrorMessage, type ModelClient } from '../model/llm.js';
+import { createModelClient, type ModelProvider } from '../model/provider.js';
 import { runModelHarness, type HarnessServices, type InspectionSummary, type ProposalVerdict } from '../model/agent.js';
 import { BrowserRuntime } from '../browser/runtime.js';
 import { inspectPage, type BlobWriter } from '../browser/inspect.js';
@@ -25,6 +26,8 @@ export interface ModelOptions {
   /** Default true. When false, the model is built from evidence only. */
   enabled?: boolean;
   modelId?: string;
+  /** anthropic (default) or openai; inferred from the model id or the keys in the environment when omitted. */
+  provider?: ModelProvider;
   /** Injected client (tests). A client with turn() drives the harness loop; one without gets the one-shot enrichment. */
   client?: ModelClient;
   /** Default true: run the stage 8 harness loop (D26). False keeps the one-shot enrichment of D13. */
@@ -62,7 +65,7 @@ export const stage8Model: StageDefinition<DiscoveryInput & { model?: ModelOption
     let method: 'deterministic' | 'model-assisted' = 'deterministic';
     const opts = ctx.input.model ?? {};
     if (opts.enabled !== false) {
-      const client = opts.client ?? new AnthropicModelClient({ modelId: opts.modelId });
+      const client = opts.client ?? createModelClient({ provider: opts.provider, modelId: opts.modelId });
       if (client.turn && opts.harness !== false) {
         const result = await runHarness(ctx, client, data, sources);
         data = result;

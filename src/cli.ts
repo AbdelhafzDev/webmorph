@@ -83,7 +83,8 @@ program
   .option('--headed', 'show the browser (debugging)', false)
   .option('--allow-write-probes', 'permit probes that submit non-sensitive POST search or filter forms', false)
   .option('--no-model', 'build the website model from evidence only; no Claude call')
-  .option('--model-id <id>', 'Claude model for the harness, planning and the skill', 'claude-opus-5-5')
+  .option('--model-id <id>', 'model for the harness, planning and the skill (default: claude-opus-5-5, or gpt-5.5 with --model-provider openai)')
+  .option('--model-provider <name>', 'anthropic or openai; inferred from the model id or from which API key is set when omitted')
   .option('--no-harness', 'one-shot enrichment instead of the stage 8 harness loop (D26)')
   .option('--agent-turns <n>', 'model turns in the stage 8 harness loop', int, 24)
   .option('--agent-fetches <n>', 'pages and JSON endpoints the harness may read over HTTP', int, 20)
@@ -111,7 +112,7 @@ program
         ...(apiCredentials.length ? { apiCredentials } : {}),
         ...(opts.browser === false ? { stages: PHASE1_STAGES } : opts.validate === false ? { stages: PHASE3_STAGES.filter((s) => s.id !== 'stage10-validate') } : {}),
         browser: { interactions: opts.interactions !== false, headed: opts.headed, allowWriteProbes: opts.allowWriteProbes },
-        model: { enabled: opts.model !== false, modelId: opts.modelId, harness: opts.harness !== false },
+        model: { enabled: opts.model !== false, modelId: opts.modelId, provider: opts.modelProvider, harness: opts.harness !== false },
         budget: {
           maxAgentTurns: opts.agentTurns,
           maxAgentFetches: opts.agentFetches,

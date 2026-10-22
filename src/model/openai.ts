@@ -1,0 +1,125 @@
+import OpenAI from 'openai';
+import type Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
+import type { ChatTurnRequest, ChatTurnResponse, ModelClient, ModelRequest, ModelResponse } from './llm.js';
+
+export const DEFAULT_OPENAI_MODEL_ID = 'gpt-5.5';
+
+/**
+ * OpenAI via the official SDK (Chat Completions). The harness speaks the Anthropic block shapes
+ * (text, tool_use, tool_result); this client translates them to messages, tool calls and tool
+ * results and back, so the loop and its tests stay provider-neutral.
+ */
+export class OpenAIModelClient implements ModelClient {
+  private readonly client?: OpenAI;
+  private readonly initError?: Error;
+  readonly id: string;
+
+  constructor(options: { modelId?: string; apiKey?: string; timeoutMs?: number; client?: OpenAI } = {}) {
+    this.id = options.modelId ?? DEFAULT_OPENAI_MODEL_ID;
+    // The SDK refuses to construct without credentials; keep that a readable call-time failure the stages record.
+    try {
+      this.client = options.client ?? new OpenAI({ ...(options.apiKey ? { apiKey: options.apiKey } : {}), timeout: options.timeoutMs ?? 120_000, maxRetries: 2 });
+    } catch (err) {
+      this.initError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  private api(): OpenAI {
+    if (!this.client) throw this.initError ?? new Error('OpenAI client unavailable');
+    return this.client;
+  }
+
+  /** Schema-constrained JSON output. The schema is validated again with zod after parsing. */
+  async complete<T>(req: ModelRequest<T>): Promise<ModelResponse<T>> {
+    const schema = jsonSchemaOf(req.schema);
+    const response = await this.api().chat.completions.create({
+      model: this.id,
+      max_completion_tokens: req.maxTokens,
+      messages: [
+        { role: 'system', content: req.system },
+        { role: 'user', content: req.user },
+      ],
+      response_format: { type: 'json_schema', json_schema: { name: 'output', schema, strict: false } },
+    });
+    const choice = response.choices[0];
+    const base = { model: response.model, inputTokens: response.usage?.prompt_tokens ?? 0, outputTokens: response.usage?.completion_tokens ?? 0, stopReason: choice?.finish_reason ?? 'unknown' };
+    if (!choice) return { ...base, parsed: null, error: 'no choices in the response' };
+    if (choice.finish_reason === 'length') return { ...base, parsed: null, error: 'response truncated at max_tokens' };
+    if (choice.finish_reason === 'content_filter' || choice.message.refusal) return { ...base, parsed: null, error: `model declined: ${choice.message.refusal ?? 'content filter'}` };
+    let raw: unknown;
+    try {
+      raw = JSON.parse(choice.message.content ?? '');
+    } catch {
+      return { ...base, parsed: null, error: 'response was not JSON' };
+    }
+    const parsed = req.schema.safeParse(raw);
+    return { ...base, parsed: parsed.success ? parsed.data : null, ...(parsed.success ? {} : { error: 'response did not match the schema' }) };
+  }
+
+  /** One harness turn with strict function tools. */
+  async turn(req: ChatTurnRequest): Promise<ChatTurnResponse> {
+    const response = await this.api().chat.completions.create({
+      model: this.id,
+      max_completion_tokens: req.maxTokens,
+      messages: [{ role: 'system', content: req.system }, ...toOpenAIMessages(req.messages)],
+      tools: req.tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description ?? '', parameters: t.input_schema as Record<string, unknown>, strict: true } })),
+      tool_choice: 'auto',
+      ...(req.effort ? { reasoning_effort: req.effort } : {}),
+    });
+    const choice = response.choices[0];
+    const base = { model: response.model, inputTokens: response.usage?.prompt_tokens ?? 0, outputTokens: response.usage?.completion_tokens ?? 0, cacheReadTokens: response.usage?.prompt_tokens_details?.cached_tokens ?? 0 };
+    if (!choice) return { ...base, content: [], stopReason: 'unknown', error: 'no choices in the response' };
+    const content: Anthropic.Beta.BetaContentBlock[] = [];
+    if (choice.message.content) content.push({ type: 'text', text: choice.message.content, citations: null });
+    for (const call of choice.message.tool_calls ?? []) {
+      if (call.type !== 'function') continue;
+      let input: unknown = {};
+      try {
+        input = JSON.parse(call.function.arguments || '{}');
+      } catch {
+        input = { __invalid_json: call.function.arguments };
+      }
+      content.push({ type: 'tool_use', id: call.id, name: call.function.name, input });
+    }
+    const stopReason = choice.finish_reason === 'tool_calls' || content.some((b) => b.type === 'tool_use') ? 'tool_use' : choice.finish_reason === 'stop' ? 'end_turn' : choice.finish_reason;
+    if (choice.finish_reason === 'length') return { ...base, content, stopReason: 'max_tokens', error: 'response truncated at max_tokens' };
+    if (choice.finish_reason === 'content_filter' || choice.message.refusal) return { ...base, content, stopReason: 'refusal', error: `model declined: ${choice.message.refusal ?? 'content filter'}` };
+    return { ...base, content, stopReason };
+  }
+}
+
+/** JSON Schema for a zod type, without the meta key OpenAI rejects. */
+export function jsonSchemaOf(schema: z.ZodType): Record<string, unknown> {
+  const out = z.toJSONSchema(schema, { target: 'draft-2020-12', io: 'output' }) as Record<string, unknown>;
+  delete out['$schema'];
+  return out;
+}
+
+/** Anthropic-shaped transcript (text, tool_use, tool_result) to Chat Completions messages. */
+export function toOpenAIMessages(messages: Anthropic.Beta.BetaMessageParam[]): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+  const out: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+  for (const m of messages) {
+    if (typeof m.content === 'string') {
+      out.push({ role: m.role, content: m.content });
+      continue;
+    }
+    if (m.role === 'user') {
+      const texts: string[] = [];
+      for (const block of m.content) {
+        if (block.type === 'text') texts.push(block.text);
+        else if (block.type === 'tool_result') out.push({ role: 'tool', tool_call_id: block.tool_use_id, content: typeof block.content === 'string' ? block.content : JSON.stringify(block.content ?? '') });
+      }
+      if (texts.length) out.push({ role: 'user', content: texts.join('\n') });
+      continue;
+    }
+    const texts: string[] = [];
+    const calls: OpenAI.Chat.Completions.ChatCompletionMessageFunctionToolCall[] = [];
+    for (const block of m.content) {
+      if (block.type === 'text') texts.push(block.text);
+      else if (block.type === 'tool_use') calls.push({ id: block.id, type: 'function', function: { name: block.name, arguments: JSON.stringify(block.input ?? {}) } });
+    }
+    out.push({ role: 'assistant', content: texts.join('\n') || null, ...(calls.length ? { tool_calls: calls } : {}) });
+  }
+  return out;
+}

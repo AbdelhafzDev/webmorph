@@ -5,7 +5,7 @@ import { WebsiteModel } from '../schemas/websiteModel.js';
 import { ToolDefinition } from '../schemas/toolDefinition.js';
 import { ValidationReport } from '../schemas/validationReport.js';
 import { SkillDefinition, SKILL_DEFINITION_VERSION } from '../schemas/skillDefinition.js';
-import { AnthropicModelClient } from '../model/llm.js';
+import { createModelClient } from '../model/provider.js';
 import { generateSkill } from '../model/skill.js';
 import type { ModelOptions } from './stage8-model.js';
 import { makeEnvelope, refTo, type DiscoveryInput } from './shared.js';
@@ -40,7 +40,7 @@ export const stage11Skill: StageDefinition<DiscoveryInput & { model?: ModelOptio
     // HTTP tools first, like the MCP listing.
     tools.sort((a, b) => Number(b.transport === 'http') - Number(a.transport === 'http') || a.name.localeCompare(b.name));
     const opts = ctx.input.model ?? {};
-    const client = opts.enabled === false ? undefined : opts.client ?? new AnthropicModelClient({ modelId: opts.modelId });
+    const client = opts.enabled === false ? undefined : opts.client ?? createModelClient({ provider: opts.provider, modelId: opts.modelId });
     const data = await generateSkill(
       {
         siteId: ctx.siteId,

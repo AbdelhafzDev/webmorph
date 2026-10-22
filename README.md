@@ -63,7 +63,7 @@ Requires Node 20+ and pnpm. Browser stages need Chromium.
 pnpm install
 pnpm exec playwright install chromium --only-shell
 pnpm build
-cp .env.example .env            # put ANTHROPIC_API_KEY in .env (gitignored); the CLI loads it at startup
+cp .env.example .env            # put ANTHROPIC_API_KEY or OPENAI_API_KEY in .env (gitignored); the CLI loads it at startup
 node dist/cli.js discover https://example.com --max-pages 30
 ```
 
@@ -93,7 +93,7 @@ Stage 8 starts from the deterministic model and hands it to the model as data, w
 
 What the model cannot do: widen the scope, send a write, replay a credential it saw, or cite evidence that does not exist. Those checks are code, and they are the same clients the deterministic stages use. Without a model (`--no-model`), or when the model errs or declines, every stage keeps its deterministic result and records why; a run never fails because the model did. `--no-harness` keeps the older one-shot enrichment.
 
-Model calls use the Anthropic SDK (`claude-opus-5-5` by default, `--model-id` to change); credentials resolve from the environment (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, or an `ant auth login` profile). Page content reaches the model only as JSON data labelled as such, and model text that reads like an instruction to a downstream agent is dropped.
+The model is Claude through the Anthropic SDK (`claude-opus-5-5` by default) or an OpenAI model through the OpenAI SDK (`gpt-5.5` by default); `--model-id` picks the model and `--model-provider` the provider, which is otherwise inferred from the model id or from which key is set (`ANTHROPIC_API_KEY` or an `ant auth login` profile; `OPENAI_API_KEY`). Both clients speak the same harness protocol (strict tools, tool calls, tool results), so the loop and its guardrails are identical. Page content reaches the model only as JSON data labelled as such, and model text that reads like an instruction to a downstream agent is dropped.
 
 ## Skill generator
 
@@ -132,7 +132,7 @@ Only published, read-only, session-free tools run. Calls are bounded by a per-si
 
 | Command | Purpose |
 |---|---|
-| `discover <url>` | Run the pipeline. Budgets: `--max-pages`, `--max-depth`, `--delay-ms`, `--concurrency`, `--inspect-pages`, `--max-probes`, `--validation-runs`. Model: `--model-id`, `--no-model`, `--no-harness`, `--agent-turns`, `--agent-fetches`, `--agent-inspections`, `--agent-proposals`. Scope: `--allow-host`, `--ignore-robots` (sites you own), `--allow-private` (test fixtures). Stages: `--no-browser`, `--no-interactions`, `--no-validate`, `--resume <jobId>`. Credentials: `--api-credential '[name@]host:header=value'`, `--api-credentials-file <json>`. |
+| `discover <url>` | Run the pipeline. Budgets: `--max-pages`, `--max-depth`, `--delay-ms`, `--concurrency`, `--inspect-pages`, `--max-probes`, `--validation-runs`. Model: `--model-id`, `--model-provider anthropic|openai`, `--no-model`, `--no-harness`, `--agent-turns`, `--agent-fetches`, `--agent-inspections`, `--agent-proposals`. Scope: `--allow-host`, `--ignore-robots` (sites you own), `--allow-private` (test fixtures). Stages: `--no-browser`, `--no-interactions`, `--no-validate`, `--resume <jobId>`. Credentials: `--api-credential '[name@]host:header=value'`, `--api-credentials-file <json>`. |
 | `tools <siteId>` | Generated tools with validation verdict and registry status. |
 | `publish <siteId> [names...]` | Approve validated tools into the per-site registry (`--force` for unvalidated, `--job` to choose a job). |
 | `call <siteId> <name> --input <json>` | Call a published tool through the executor. |
