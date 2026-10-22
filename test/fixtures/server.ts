@@ -309,7 +309,13 @@ fetch('/api/events/digest', { headers: { accept: 'application/json', authorizati
         const n = Math.max(0, Math.min(10, Number(url.searchParams.get('n') ?? '3') || 0));
         // flaky=1: the first load in a browsing context loses its own race and never renders; a reload does.
         const flaky = url.searchParams.get('flaky') === '1';
-        return html(200, page(base, 'Late results', `<h1>Departures</h1><ul id="late"><li class="skeleton"></li><li class="skeleton"></li></ul><script>${flaky ? "if (!sessionStorage.getItem('loaded')) { sessionStorage.setItem('loaded', '1'); } else " : ''}setTimeout(function () { var ul = document.getElementById('late'); ul.innerHTML = ''; for (var i = 1; i <= ${n}; i++) { var li = document.createElement('li'); li.className = 'trip'; li.innerHTML = '<span class="time">' + (8 + i) + ':00</span> <span class="train">Train ' + i + '</span>'; ul.appendChild(li); } }, 2500);</script>`));
+        return html(200, page(base, 'Late results', `<h1>Departures</h1><ul id="late"><li class="skeleton"></li><li class="skeleton"></li></ul><script>${flaky ? "if (!sessionStorage.getItem('loaded')) { sessionStorage.setItem('loaded', '1'); } else " : ''}fetch('/api/late?n=${n}').then(function (r) { return r.json(); }).then(function (trips) { var ul = document.getElementById('late'); ul.innerHTML = ''; trips.forEach(function (t) { var li = document.createElement('li'); li.className = 'trip'; li.innerHTML = '<span class="time">' + t.time + '</span> <span class="train">' + t.train + '</span>'; ul.appendChild(li); }); });</script>`));
+      }
+      case '/api/late': {
+        // The app's own call answers slowly, as a booking backend does.
+        const n = Math.max(0, Math.min(10, Number(url.searchParams.get('n') ?? '3') || 0));
+        setTimeout(() => send(200, 'application/json', JSON.stringify(Array.from({ length: n }, (_, i) => ({ time: `${9 + i}:00`, train: `Train ${i + 1}` })))), 2500);
+        return;
       }
       case '/framed':
         // A page whose booking form lives in an iframe, as on sites that embed their ticketing app.

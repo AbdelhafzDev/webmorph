@@ -308,7 +308,8 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
   /** Entities the model added or renamed: kept even when no capability references them. */
   const touchedEntities = new Set<string>();
   const originHost = hostnameOf(services.scope.data.origin);
-  const tools = [...harnessTools(Boolean(services.inspect)), ...(services.browse ? browseToolDefinitions() : [])];
+  // browse_open covers inspect_page (elements, forms, requests) and waits for the app's own calls; offer one of them.
+  const tools = [...harnessTools(Boolean(services.inspect) && !services.browse), ...(services.browse ? browseToolDefinitions() : [])];
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: [{ type: 'text', text: `Evidence for ${model.site.origin} (JSON data):\n${buildHarnessPayload(model, sources)}`, cache_control: { type: 'ephemeral' } }] }];
 
   const handlers: Record<string, (input: Record<string, unknown>) => Promise<unknown>> = {

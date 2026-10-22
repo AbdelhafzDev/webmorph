@@ -136,6 +136,8 @@ export class BrowseSession {
   private elements = new Map<string, ElementRecord>();
   private forms: FormInventoryRecord[] = [];
   private networkCursor = 0;
+  /** The site's own XHR/fetch requests still in flight on the current page. */
+  private inflight = new Set<unknown>();
   private opens = 0;
   private acts = 0;
 
@@ -155,6 +157,27 @@ export class BrowseSession {
   /** URLs the session opened: citable as browsed pages. */
   get visited(): string[] {
     return Array.from(new Set(this.actions.filter((a) => a.kind === 'open').map((a) => a.afterUrl)));
+  }
+
+  /**
+   * A client-rendered app shows placeholders until its own calls return, and DOM settling alone reads the placeholders.
+   * Wait until none of the site's own XHR/fetch requests has been in flight for a short quiet period, capped at the
+   * page-load timeout. Returns whether there was anything to wait for. Third-party traffic (telemetry) is ignored.
+   */
+  private async waitForAppQuiet(): Promise<boolean> {
+    const page = this.page!;
+    const deadline = Date.now() + this.options.pageLoadTimeoutMs;
+    let waited = false;
+    let quietSince = this.inflight.size ? 0 : Date.now();
+    while (Date.now() < deadline) {
+      if (this.inflight.size) {
+        waited = true;
+        quietSince = 0;
+      } else if (!quietSince) quietSince = Date.now();
+      else if (Date.now() - quietSince >= 800) break;
+      await page.waitForTimeout(100);
+    }
+    return waited;
   }
 
   private ownHost(raw: string): boolean {
@@ -190,10 +213,26 @@ export class BrowseSession {
       this.page = await this.ctx.context.newPage();
       this.page.setDefaultTimeout(Math.min(this.options.pageLoadTimeoutMs, 10_000));
       this.networkCursor = 0;
+      this.inflight = new Set();
+      const tracked = (r: { resourceType(): string; url(): string }) => (r.resourceType() === 'xhr' || r.resourceType() === 'fetch') && this.ownHost(r.url());
+      this.page.on('request', (r) => {
+        if (tracked(r)) this.inflight.add(r);
+      });
+      const done = (r: unknown) => this.inflight.delete(r);
+      // A request the policy layer fulfills from its route handler may never emit requestfinished: a response ends it too.
+      this.page.on('response', (res) => done(res.request()));
+      this.page.on('requestfinished', done);
+      this.page.on('requestfailed', done);
+      // A new document abandons the previous one's calls without any event for them.
+      const page = this.page;
+      page.on('framenavigated', (frame) => {
+        if (frame === page.mainFrame()) this.inflight.clear();
+      });
     }
     const before = this.page!.url();
     await gotoWithPolicy(this.page!, url.toString(), { timeout: this.options.pageLoadTimeoutMs });
     await settle(this.page!, this.options.settleTimeoutMs);
+    if (await this.waitForAppQuiet()) await settle(this.page!, this.options.settleTimeoutMs);
     const after = this.page!.url();
     this.actions.push({ index: this.actions.length, kind: 'open', url: before, afterUrl: after, requestedUrl: url.toString(), urlChanged: before !== after });
     return this.summary();
@@ -232,6 +271,7 @@ export class BrowseSession {
     while (page.url() === before && Date.now() < deadline - this.options.settleTimeoutMs / 2) await page.waitForTimeout(100);
     if (page.url() !== before) await page.waitForLoadState('domcontentloaded', { timeout: this.options.pageLoadTimeoutMs }).catch(() => {});
     await settle(page, this.options.settleTimeoutMs);
+    if (await this.waitForAppQuiet()) await settle(page, this.options.settleTimeoutMs);
     const after = page.url();
     if (!this.options.scope.isInScope(after) && !this.allowedHost(new URL(after))) throw new BrowseRefusal(`the action navigated out of scope to ${after}`);
     this.actions.push({ index: this.actions.length, kind: input.action, url: before, afterUrl: after, urlChanged: before !== after, element: { elementId: el.elementId, kind: el.kind, name: el.name, text: el.text, locators: el.locators }, ...(value !== undefined ? { value } : {}), ...(key ? { key } : {}) });

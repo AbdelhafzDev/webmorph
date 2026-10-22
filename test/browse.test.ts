@@ -147,7 +147,9 @@ describe('the model drives the browser (D27)', () => {
   it('waits for results a client-rendered page shows late, and returns an empty answer when there are none', async () => {
     const session = new BrowseSession(runtime, options());
     try {
-      await session.open(`${site.baseUrl}/late?n=3`);
+      // The summary is read after the app's own call returned, not over its placeholders.
+      const opened = await session.open(`${site.baseUrl}/late?n=3`);
+      expect(opened.textSample).toContain('Train 3');
       const cap = session.buildWorkflowCapability(
         {
           kind: 'search',
