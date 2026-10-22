@@ -2,30 +2,71 @@
   "$comment": "Benchmark set: one budget per site, run several times, scored from the artifacts. Edit a site's mainTask when its real visitor task changes.",
   "defaults": {
     "runs": 2,
-    "model": { "provider": "openai" },
-    "budget": { "maxDepth": 2, "maxPagesToInspect": 8, "maxProbesTotal": 8, "validationRuns": 2, "maxAgentTurns": 30, "maxAgentActions": 40, "maxAgentInspections": 10 }
+    "model": {
+      "provider": "openai"
+    },
+    "budget": {
+      "maxDepth": 2,
+      "maxPagesToInspect": 8,
+      "maxProbesTotal": 8,
+      "validationRuns": 2,
+      "maxAgentTurns": 30,
+      "maxAgentActions": 40,
+      "maxAgentInspections": 10
+    }
   },
   "sites": [
     {
       "id": "sar",
       "startUrl": "https://www.sar.com.sa/",
-      "allowedHosts": ["tickets.sar.com.sa"],
-      "budget": { "maxPages": 25, "minDelayMs": 500, "maxPagesToInspect": 4 },
-      "mainTask": { "description": "Search passenger train trips between two stations on a date", "match": "trip|train|journey", "inputs": ["station|from|origin|depart", "date"] }
+      "allowedHosts": [
+        "tickets.sar.com.sa"
+      ],
+      "budget": {
+        "maxPages": 25,
+        "minDelayMs": 500,
+        "maxPagesToInspect": 4
+      },
+      "mainTask": {
+        "description": "Search passenger train trips between two stations on a date",
+        "match": "trip|train|journey",
+        "inputs": [
+          "station|from|origin|depart",
+          "date"
+        ]
+      }
     },
     {
       "id": "syarah",
       "startUrl": "https://syarah.com/",
       "allowedHosts": [],
-      "budget": { "maxPages": 30, "minDelayMs": 800 },
-      "mainTask": { "description": "Search used or new cars by keyword or make", "match": "car|search|filter|auto", "inputs": ["query|text|q$|make|auto|brand"] }
+      "budget": {
+        "maxPages": 30,
+        "minDelayMs": 800
+      },
+      "mainTask": {
+        "description": "Search cars by free-text keyword",
+        "match": "search",
+        "inputs": [
+          "query|text|^q$|keyword"
+        ]
+      }
     },
     {
       "id": "haraj",
       "startUrl": "https://haraj.com.sa/en/",
       "allowedHosts": [],
-      "budget": { "maxPages": 30, "minDelayMs": 800 },
-      "mainTask": { "description": "Search classified posts by keyword", "match": "search|post", "inputs": ["query|q$|search|text|keyword"] }
+      "budget": {
+        "maxPages": 30,
+        "minDelayMs": 800
+      },
+      "mainTask": {
+        "description": "Search classified posts by keyword",
+        "match": "search|post",
+        "inputs": [
+          "query|q$|search|text|keyword"
+        ]
+      }
     }
   ]
 }
