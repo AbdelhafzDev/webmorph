@@ -158,7 +158,7 @@ async function runHarness(ctx: Ctx, client: ModelClient, baseline: WebsiteModelD
     return session;
   };
   const withBrowser = budget.maxAgentInspections > 0;
-  const services: HarnessServices = { scope, http, logger: ctx.logger, validate, ...(withBrowser ? { inspect } : {}), ...(withBrowser && budget.maxAgentActions > 0 ? { browse } : {}) };
+  const services: HarnessServices = { scope, http, logger: ctx.logger, validate, today: ctx.now().toISOString().slice(0, 10), ...(withBrowser ? { inspect } : {}), ...(withBrowser && budget.maxAgentActions > 0 ? { browse } : {}) };
   try {
     const { model } = await runModelHarness(client, baseline, sources, services, { maxTurns: budget.maxAgentTurns, maxFetches: budget.maxAgentFetches, maxInspections: budget.maxAgentInspections, maxActions: budget.maxAgentActions, maxProposals: budget.maxAgentProposals, maxTokens: budget.maxAgentTokens });
     if (model.agent?.error) ctx.logger.warn(`model: harness stopped early: ${model.agent.error}`);

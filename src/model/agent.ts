@@ -15,7 +15,7 @@ import { hostnameOf, sameSite } from '../net/url.js';
 import type { ToolValidation } from '../schemas/validationReport.js';
 import { BrowseRefusal, browseToolDefinitions, type BrowseSession, type WorkflowProposal } from './browse.js';
 
-export const HARNESS_PROMPT_VERSION = '2026-10-22.5';
+export const HARNESS_PROMPT_VERSION = '2026-10-22.6';
 
 export interface HarnessBudget {
   maxTurns: number;
@@ -55,6 +55,8 @@ export interface HarnessServices {
   /** Generate tools for a capability and replay them against the live site. */
   validate: (capability: Capability, model: WebsiteModelData) => Promise<ProposalVerdict>;
   logger: Logger;
+  /** Today's date (YYYY-MM-DD): example dates for a search must lie ahead of it. */
+  today?: string;
 }
 
 export interface HarnessResult {
@@ -79,6 +81,7 @@ How this works:
 - A form inside an iframe is not reachable from the outer page: when a browse summary lists frames, open the frame's URL with browse_open and work there.
 - Start from what a visitor comes to do (the site's main search, lookup or listing: trips, products, listings) and make sure it becomes a tool before polishing content pages. When the main task has no public JSON API (opaque or encoded payloads, a session the app negotiates itself), a validated browser tool is the right outcome, not a gap: drive the form with the browsing tools, or open a results URL the site itself links to with the inputs in its query, and propose_workflow.
 - A workflow's extractor must read the entity's own result items (trip cards, product rows, listings), never navigation, filters or a date strip. If the session never showed one result item, do not propose the workflow: record in set_site_summary which mechanism reaches the results and that no example produced any.
+- Several tool calls may go in one turn when they do not depend on each other's results (reads of different records, a fill and a click you planned together); it saves turns.
 - A replay that returns no results may be the site's real answer for that example (no trip on that date, nothing in stock): try another example value the site offers before giving up on a mechanism.
 - When the browsing tools are offered (browse_open, browse_act, browse_read, propose_workflow), use them for what static evidence cannot show: a client-rendered app, a search behind clicks, a custom dropdown. Every page the session opens and every XHR/fetch it causes is returned to you, including the app's own POST requests (allowed when the page makes them; you still cannot propose a write). When the session reached results, call browse_read to find the result items, then propose_workflow to turn the recorded actions into a tool: the harness replays it in a fresh browser with your input bindings before it is kept.
 - Budgets are finite (turns, fetches, inspections, browser actions, proposals, tokens). Spend them on what changes the outcome. Call set_site_summary as soon as you understand the site, and call finish with a short summary before the turn budget runs out; the harness reminds you when two turns remain.`;
@@ -657,7 +660,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
     },
   };
 
-  const system = `${HARNESS_SYSTEM}\n\nBudget: ${budget.maxTurns} turns, ${budget.maxFetches} HTTP reads, ${budget.maxInspections} browser inspections${services.browse ? `, ${budget.maxActions} browser actions` : ''}, ${budget.maxProposals} proposals.`;
+  const system = `${HARNESS_SYSTEM}\n\n${services.today ? `Today is ${services.today}. Dates in the evidence may be stale; an example date for a search must lie ahead of today (a few days to a few weeks), and a date with no results is worth one or two other tries.\n\n` : ''}Budget: ${budget.maxTurns} turns, ${budget.maxFetches} HTTP reads, ${budget.maxInspections} browser inspections${services.browse ? `, ${budget.maxActions} browser actions` : ''}, ${budget.maxProposals} proposals.`;
   let reminded = false;
   try {
     while (record.turns < budget.maxTurns && !record.finished) {

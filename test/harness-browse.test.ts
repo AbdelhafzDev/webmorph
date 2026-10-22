@@ -98,6 +98,7 @@ describe('the harness drives the browser (D27)', () => {
     // Static front-end files (a translation file here) never become API candidates.
     const candidates = (await store.readArtifact(siteId, jobId, 'ApiCandidates', ApiCandidates)).data.candidates;
     expect(candidates.some((c) => c.urlTemplate.includes('/assets/'))).toBe(false);
+    expect(client.requests[0]!.system).toMatch(/Today is \d{4}-\d{2}-\d{2}\./);
     const model = (await store.readArtifact(siteId, jobId, 'WebsiteModel', WebsiteModel)).data;
     const agent = model.agent!;
     expect(agent).toMatchObject({ finished: true, turns: 7 });
