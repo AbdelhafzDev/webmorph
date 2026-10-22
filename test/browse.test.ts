@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BrowserRuntime } from '../src/browser/runtime.js';
-import { BrowseSession, BrowseRefusal, browseToolDefinitions, summarizeRequests, type WorkflowProposal } from '../src/model/browse.js';
+import { BrowseSession, BrowseRefusal, bindInUrl, browseToolDefinitions, summarizeRequests, type WorkflowProposal } from '../src/model/browse.js';
 import type { NetworkRecord } from '../src/schemas/networkEvidence.js';
 import { generateProgramTool } from '../src/tools/generateProgram.js';
 import { executeTool } from '../src/tools/interpreter.js';
@@ -106,6 +106,50 @@ describe('the model drives the browser (D27)', () => {
     }
     expect(site.buys).toEqual([]);
   }, 120_000);
+
+  it('starts the program at the page that leads to the bound action and binds several inputs on one opened URL', async () => {
+    const session = new BrowseSession(runtime, options());
+    try {
+      await session.open(`${site.baseUrl}/app`); // exploration that is not part of the flow
+      await session.open(`${site.baseUrl}/products?page=1&sort=desc`);
+      const items = (await session.read({ mode: 'items', selector: null })).items!;
+      expect(items.count).toBe(3);
+      const proposal: WorkflowProposal = {
+        kind: 'list',
+        name: 'list_products',
+        title: 'List products',
+        description: 'One page of the catalog in a chosen order.',
+        entity: 'product',
+        inputs: [
+          { name: 'page', type: 'string', required: true, description: 'Page number', example: '1', actionIndex: 1, mode: 'value' },
+          { name: 'sort', type: 'string', required: true, description: 'asc or desc', example: 'desc', actionIndex: 1, mode: 'value' },
+        ],
+        extract: { kind: 'item-list', item: 'ul.grid > li', fields: [{ name: 'name', selector: 'a', attr: null }, { name: 'url', selector: 'a', attr: 'href' }], hrefPattern: null, maxItems: 20 },
+        resultUrlPattern: null,
+        expectedOutcome: 'Three products.',
+        confidence: 0.8,
+        evidence: [],
+      };
+      const cap = session.buildWorkflowCapability(proposal, site.baseUrl);
+      const program = cap.mechanics.program as Array<Record<string, unknown>>;
+      expect(program.filter((s) => s['op'] === 'navigate').map((s) => s['url'])).toEqual([`${site.baseUrl}/products?page={{page}}&sort={{sort}}`]);
+      const tool = generateProgramTool(cap, { ...model, site: { ...model.site, origin: site.baseUrl } }, { pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1500 })!;
+      const run = await executeTool(runtime, tool, { page: '2', sort: 'asc' }, { scope, pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1500 });
+      expect(run.ok, run.errorMessage).toBe(true);
+      expect((run.output as { results: Array<{ name: string }> }).results.map((r) => r.name)).toEqual(['Product 4', 'Product 5', 'Product 6']);
+      expect(() => session.buildWorkflowCapability({ ...proposal, inputs: [{ ...proposal.inputs[0]!, example: '9' }] }, site.baseUrl)).toThrow(/does not contain the example value "9"/);
+    } finally {
+      await session.close();
+    }
+  }, 60_000);
+
+  it('binds an example as a whole query value or path segment before any other occurrence', () => {
+    expect(bindInUrl('https://x.test/s?From=RIY&To=DMM&Lang=en', 'DMM', 'to')).toBe('https://x.test/s?From=RIY&To={{to}}&Lang=en');
+    expect(bindInUrl('https://x.test/s?q=1&page=1', '1', 'page')).toBe('https://x.test/s?q={{page}}&page=1');
+    expect(bindInUrl('https://x.test/cars/toyota-1/specs', 'toyota-1', 'slug')).toBe('https://x.test/cars/{{slug}}/specs');
+    expect(bindInUrl('https://x.test/s?q=red%20car', 'red car', 'q')).toBe('https://x.test/s?q={{q}}');
+    expect(bindInUrl('http://127.0.0.1:8080/s?n=3', '7', 'n')).toBe('http://127.0.0.1:8080/s?n=3');
+  });
 
   it('lists embedded frames so the model can open a form that lives in one', async () => {
     const session = new BrowseSession(runtime, options());

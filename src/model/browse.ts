@@ -36,6 +36,8 @@ export interface RecordedAction {
   /** Page URL before the action. */
   url: string;
   afterUrl: string;
+  /** For an open: the URL the model asked for (afterUrl is where the page ended up). */
+  requestedUrl?: string;
   urlChanged: boolean;
   element?: { elementId: string; kind: string; name?: string; text?: string; locators: LocatorCandidate[] };
   value?: string;
@@ -193,7 +195,7 @@ export class BrowseSession {
     await gotoWithPolicy(this.page!, url.toString(), { timeout: this.options.pageLoadTimeoutMs });
     await settle(this.page!, this.options.settleTimeoutMs);
     const after = this.page!.url();
-    this.actions.push({ index: this.actions.length, kind: 'open', url: before, afterUrl: after, urlChanged: before !== after });
+    this.actions.push({ index: this.actions.length, kind: 'open', url: before, afterUrl: after, requestedUrl: url.toString(), urlChanged: before !== after });
     return this.summary();
   }
 
@@ -332,20 +334,28 @@ export class BrowseSession {
       if (!action) throw new BrowseRefusal(`input ${i.name}: actionIndex ${i.actionIndex} is not a recorded action (0 to ${this.actions.length - 1})`);
       if (!i.example) throw new BrowseRefusal(`input ${i.name} needs the example value used in the session`);
       if (i.mode === 'value' && action.kind !== 'fill' && action.kind !== 'select' && action.kind !== 'open') throw new BrowseRefusal(`input ${i.name}: value binding needs a fill, select or open action, not ${action.kind}`);
-      if (i.mode === 'value' && action.kind === 'open' && !action.afterUrl.includes(i.example) && !action.url.includes(i.example)) throw new BrowseRefusal(`input ${i.name}: the opened URL does not contain the example value "${i.example}"`);
+      if (i.mode === 'value' && action.kind === 'open' && bindInUrl(action.afterUrl, i.example, i.name) === action.afterUrl && bindInUrl(action.requestedUrl ?? action.afterUrl, i.example, i.name) === (action.requestedUrl ?? action.afterUrl)) throw new BrowseRefusal(`input ${i.name}: the opened URL does not contain the example value "${i.example}"`);
       if (i.mode === 'value' && action.kind !== 'open' && action.value !== i.example) throw new BrowseRefusal(`input ${i.name}: action ${i.actionIndex} used "${action.value ?? ''}", not "${i.example}"`);
       if (i.mode === 'locator' && (action.kind !== 'click' || !action.element?.locators.some((l) => l.value.includes(i.example)))) throw new BrowseRefusal(`input ${i.name}: no locator of the clicked element at action ${i.actionIndex} contains "${i.example}"; bind to the option you clicked`);
     }
-    const bound = new Map<number, (typeof p.inputs)[number]>();
-    for (const i of p.inputs) bound.set(i.actionIndex, i);
+    const bound = new Map<number, Array<(typeof p.inputs)[number]>>();
+    for (const i of p.inputs) bound.set(i.actionIndex, [...(bound.get(i.actionIndex) ?? []), i]);
+    for (const [index, inputs] of bound) if (inputs.length > 1 && this.actions[index]!.kind !== 'open') throw new BrowseRefusal(`action ${index} is bound to ${inputs.length} inputs; only an opened URL can carry several`);
+    // The program starts at the page open that leads to the first bound action (or the last open when nothing is
+    // bound): the exploration before it is how the model found the flow, not part of the flow.
+    const firstBound = p.inputs.length ? Math.min(...p.inputs.map((i) => i.actionIndex)) : this.actions.length - 1;
+    const start = this.actions.slice(0, firstBound + 1).reduce((at, a) => (a.kind === 'open' ? a.index : at), -1);
+    if (start < 0) throw new BrowseRefusal('the flow must begin with a page you opened before the first bound action');
     const steps: ToolStep[] = [];
     const settleMs = Math.max(this.options.settleTimeoutMs, 1000);
     let firstUrl: string | undefined;
-    for (const a of this.actions) {
-      const input = bound.get(a.index);
+    for (const a of this.actions.slice(start)) {
+      const inputs = bound.get(a.index) ?? [];
+      const input = inputs[0];
       if (a.kind === 'open') {
-        let url = a.afterUrl;
-        if (input) url = url.includes(input.example) ? url.replace(input.example, `{{${input.name}}}`) : a.url.replace(input.example, `{{${input.name}}}`);
+        // Bind on where the page ended up when every example survived there, else on the URL that was asked for.
+        let url = inputs.every((i) => bindInUrl(a.afterUrl, i.example, i.name) !== a.afterUrl) ? a.afterUrl : (a.requestedUrl ?? a.afterUrl);
+        for (const i of inputs) url = bindInUrl(url, i.example, i.name);
         firstUrl ??= a.afterUrl;
         steps.push({ op: 'navigate', url });
         steps.push({ op: 'wait', for: 'dom-stable', timeoutMs: settleMs });
@@ -484,6 +494,30 @@ const obj = (properties: Record<string, unknown>) => ({ type: 'object' as const,
  * The site's own XHR and fetch requests, one line per method and path (with a count), API-looking calls first.
  * Third-party traffic (analytics, telemetry, chat widgets) and static assets are counted, not listed.
  */
+/**
+ * Replace an example value in a URL with a placeholder: as a whole query value or path segment first, anywhere in
+ * the path or query last. The origin is never touched. Returns the URL unchanged when the example is not there.
+ */
+export function bindInUrl(url: string, example: string, name: string): string {
+  if (!example) return url;
+  let origin = '';
+  let rest = url;
+  try {
+    origin = new URL(url).origin;
+    rest = url.slice(origin.length);
+  } catch {
+    // not absolute: bind anywhere
+  }
+  const variants = Array.from(new Set([example, encodeURIComponent(example), example.replace(/ /g, '+')]));
+  for (const v of variants) {
+    const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const whole = new RegExp(`([=/])${escaped}(?=[&#/]|$)`);
+    if (whole.test(rest)) return origin + rest.replace(whole, `$1{{${name}}}`);
+  }
+  for (const v of variants) if (rest.includes(v)) return origin + rest.replace(v, `{{${name}}}`);
+  return url;
+}
+
 export function summarizeRequests(records: NetworkRecord[], own: (url: string) => boolean): { requests: RequestSummary[]; otherRequests: number } {
   const lines = new Map<string, RequestSummary>();
   let otherRequests = 0;
@@ -551,7 +585,7 @@ export function browseToolDefinitions(): Anthropic.Beta.BetaTool[] {
     },
     {
       name: 'propose_workflow',
-      description: 'Turn your browsing session into a tool. Name the inputs and bind each to a recorded action (actionIndex from the summaries): mode "value" replaces what you filled, selected or put in an opened URL; mode "locator" replaces the option you clicked (the clicked element must have a locator containing the example). Choose the extractor: item-list with the item selector and fields from browse_read, or link-list with an hrefPattern. The harness builds the program, generates the tool and replays it in a fresh browser; the proposal is kept only if it validates, and you are told why otherwise.',
+      description: 'Turn your browsing session into a tool. Name the inputs and bind each to a recorded action (actionIndex from the summaries): mode "value" replaces what you filled, selected or put in an opened URL (several inputs may bind to one opened URL, one per query value); mode "locator" replaces the option you clicked (the clicked element must have a locator containing the example). Choose the extractor: item-list with the item selector and fields from browse_read, or link-list with an hrefPattern. The program starts at the page you opened just before the first bound action, so earlier exploration is left out. The harness builds the program, generates the tool and replays it in a fresh browser; the proposal is kept only if it validates, and you are told why otherwise.',
       strict: true,
       input_schema: obj({
         kind: { type: 'string', enum: ['search', 'list', 'detail'] },
