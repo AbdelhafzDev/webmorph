@@ -206,7 +206,7 @@ scripts/      diagram generator
 
 ## Status
 
-All planned phases are implemented and tested against the fixture site and live sites, including the model harness (decision D26) and the skill generator. The model path has run end to end with a scripted client in the test suite; a live run with an Anthropic key against a real site is the next step, followed by a benchmark harness over a fixed site set and scheduled revalidation to report replay stability over time. See [docs/roadmap.md](docs/roadmap.md).
+All planned phases are implemented and tested against the fixture site and live sites, including the model harness (decision D26) and the skill generator. The harness has run live with `gpt-5.5` against the fixture site: 11 turns, 27 tool calls, 3 capabilities proposed and all 3 validated by replay (a GraphQL search the heuristics had missed, plus a documentation entity with its list and detail tools), 193k input tokens of which 166k were cache reads. A live run against a real site is the next step, followed by a benchmark harness over a fixed site set and scheduled revalidation to report replay stability over time. See [docs/roadmap.md](docs/roadmap.md).
 
 ## License
 
