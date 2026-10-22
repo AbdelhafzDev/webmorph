@@ -93,7 +93,7 @@ export const ToolStep = z.discriminatedUnion('op', [
     scope: z.enum(['main', 'body']),
   }),
   z.object({ op: z.literal('press'), locator: LocatorCandidate, key: z.string() }),
-  z.object({ op: z.literal('wait'), for: z.enum(['navigation', 'dom-stable', 'selector']), selector: z.string().optional(), timeoutMs: z.number().int().positive() }),
+  z.object({ op: z.literal('wait'), for: z.enum(['navigation', 'dom-stable', 'selector']), selector: z.string().optional(), timeoutMs: z.number().int().positive(), optional: z.boolean().optional().describe('A selector wait that may time out: the results may legitimately be empty (no trip that day).') }),
   z.object({ op: z.literal('assert'), check: z.enum(['url-matches', 'selector-present', 'title-not-empty']), value: z.string().optional() }),
   z.object({ op: z.literal('extract'), extractor: Extractor }),
   z.object({

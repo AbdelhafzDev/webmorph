@@ -83,7 +83,8 @@ describe('the model drives the browser (D27)', () => {
       const cap = session.buildWorkflowCapability(proposal, site.baseUrl);
       expect(cap).toMatchObject({ name: 'find_trips', source: 'model', sideEffectClass: 'read', authRequirement: 'none', entity: 'trip' });
       const program = cap.mechanics.program as Array<Record<string, unknown>>;
-      expect(program.map((s) => s['op'])).toEqual(['navigate', 'wait', 'click', 'wait', 'click', 'wait', 'click', 'wait', 'extract']);
+      expect(program.map((s) => s['op'])).toEqual(['navigate', 'wait', 'click', 'wait', 'click', 'wait', 'click', 'wait', 'wait', 'extract']);
+      expect(program[8]).toMatchObject({ op: 'wait', for: 'selector', selector: read.items!.item, optional: true });
       expect((program[4]!['locator'] as { value: string }).value).toBe('option|{{category}}');
       expect(cap.evidence).toContainEqual(expect.objectContaining({ artifactType: 'PageModel', refId: `${site.baseUrl}/app` }));
 
@@ -142,6 +143,38 @@ describe('the model drives the browser (D27)', () => {
       await session.close();
     }
   }, 60_000);
+
+  it('waits for results a client-rendered page shows late, and returns an empty answer when there are none', async () => {
+    const session = new BrowseSession(runtime, options());
+    try {
+      await session.open(`${site.baseUrl}/late?n=3`);
+      const cap = session.buildWorkflowCapability(
+        {
+          kind: 'search',
+          name: 'list_departures',
+          title: 'Departures',
+          description: 'Departures shown after the app loads them.',
+          entity: 'trip',
+          inputs: [{ name: 'how_many', type: 'string', required: true, description: 'How many', example: '3', actionIndex: 0, mode: 'value' }],
+          extract: { kind: 'item-list', item: 'li.trip', fields: [{ name: 'time', selector: 'span.time', attr: null }, { name: 'train', selector: 'span.train', attr: null }], hrefPattern: null, maxItems: 20 },
+          resultUrlPattern: null,
+          expectedOutcome: 'Departures.',
+          confidence: 0.8,
+          evidence: [],
+        },
+        site.baseUrl,
+      );
+      const tool = generateProgramTool(cap, { ...model, site: { ...model.site, origin: site.baseUrl } }, { pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1000 })!;
+      const late = await executeTool(runtime, tool, { how_many: '4' }, { scope, pageLoadTimeoutMs: 15_000, settleTimeoutMs: 1000 });
+      expect(late.ok, late.errorMessage).toBe(true);
+      expect((late.output as { count: number; results: Array<{ train: string }> }).results.map((r) => r.train)).toEqual(['Train 1', 'Train 2', 'Train 3', 'Train 4']);
+      const none = await executeTool(runtime, tool, { how_many: '0' }, { scope, pageLoadTimeoutMs: 4_000, settleTimeoutMs: 1000 });
+      expect(none.ok, none.errorMessage).toBe(true);
+      expect((none.output as { count: number }).count).toBe(0);
+    } finally {
+      await session.close();
+    }
+  }, 90_000);
 
   it('binds an example as a whole query value or path segment before any other occurrence', () => {
     expect(bindInUrl('https://x.test/s?From=RIY&To=DMM&Lang=en', 'DMM', 'to')).toBe('https://x.test/s?From=RIY&To={{to}}&Lang=en');

@@ -381,6 +381,9 @@ export class BrowseSession {
       if (!p.extract.item) throw new BrowseRefusal('item-list extraction needs the item selector');
       if (!p.extract.fields.length) throw new BrowseRefusal('item-list extraction needs at least one field');
       const fields = Object.fromEntries(p.extract.fields.map((f) => [f.name, { ...(f.selector ? { selector: f.selector } : {}), ...(f.attr ? { attr: f.attr } : {}) }]));
+      // A client-rendered app shows placeholders before its results: wait for the first item, without failing when
+      // the answer is legitimately empty.
+      steps.push({ op: 'wait', for: 'selector', selector: p.extract.item, timeoutMs: this.options.pageLoadTimeoutMs, optional: true });
       steps.push({ op: 'extract', extractor: { kind: 'item-list', into: 'results', item: p.extract.item, fields, maxItems: Math.min(Math.max(p.extract.maxItems, 1), 200) } });
       outputSchema = { type: 'object', properties: { results: { type: 'array', items: { type: 'object', properties: Object.fromEntries(p.extract.fields.map((f) => [f.name, { type: 'string' }])), required: p.extract.fields.map((f) => f.name), additionalProperties: false } }, count: { type: 'integer', minimum: 0 }, pageUrl: { type: 'string' } }, required: ['results', 'count', 'pageUrl'], additionalProperties: false };
     } else {

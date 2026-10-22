@@ -507,7 +507,7 @@ async function runStep(page: Page | undefined, step: ToolStep, inputs: Record<st
         await settle(page, step.timeoutMs);
       } else if (step.selector) {
         await page.locator(step.selector).first().waitFor({ state: 'attached', timeout: step.timeoutMs }).catch(() => {
-          throw new ToolFailure('SITE_CHANGED', `selector ${step.selector} did not appear`);
+          if (!step.optional) throw new ToolFailure('SITE_CHANGED', `selector ${step.selector} did not appear`);
         });
       }
       return;
