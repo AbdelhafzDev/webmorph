@@ -88,6 +88,8 @@ export const CapabilityMechanics = z.object({
   resultLinkPattern: z.string().optional().describe('Regular expression over result link pathnames.'),
   resultsPageTypeId: z.string().optional(),
   directUrlObserved: z.boolean().optional().describe('A probe showed the GET form resolves to a plain URL.'),
+  program: z.array(z.record(z.string(), z.unknown())).optional().describe('A declarative step program the model harness built from its own browsing session (D27); validated against the ToolStep schema when the tool is generated and by replay.'),
+  outputSchema: z.record(z.string(), z.unknown()).optional().describe('Output JSON Schema for a program-bearing capability.'),
   api: z
     .object({
       source: z.enum(['documented', 'observed', 'both']),

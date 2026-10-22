@@ -17,6 +17,7 @@ import { runModelHarness, type HarnessServices, type InspectionSummary, type Pro
 import { BrowserRuntime } from '../browser/runtime.js';
 import { inspectPage, type BlobWriter } from '../browser/inspect.js';
 import { generateToolSet } from '../tools/generate.js';
+import { BrowseSession } from '../model/browse.js';
 import { toolNeedsBrowser } from '../tools/interpreter.js';
 import { validateTool } from './stage10-validate.js';
 import { createHttpClient, makeEnvelope, refTo, scopeFromManifest, type DiscoveryInput } from './shared.js';
@@ -143,18 +144,27 @@ async function runHarness(ctx: Ctx, client: ModelClient, baseline: WebsiteModelD
       const rt = toolNeedsBrowser(tool) ? await getRuntime() : null;
       const v = await validateTool(rt, tool, { scope, pageLoadTimeoutMs: budget.pageLoadTimeoutMs, settleTimeoutMs: budget.settleTimeoutMs, runs: 1, logger: ctx.logger, now: ctx.now, credentials });
       const output = v.runs[0]?.output as Record<string, unknown> | undefined;
-      const results = output && Array.isArray(output['results']) ? (output['results'] as unknown[]).length : undefined;
+      const data = output?.['data'];
+      const results = output && Array.isArray(output['results']) ? (output['results'] as unknown[]).length : Array.isArray(data) ? data.length : data && typeof data === 'object' ? (Object.values(data as Record<string, unknown>).find((x) => Array.isArray(x)) as unknown[] | undefined)?.length : undefined;
       out.push({ name: tool.name, transport: tool.transport ?? 'browser', verdict: v.verdict, ...(v.failureReasons[0] ? { reason: v.failureReasons[0] } : {}), ...(results !== undefined ? { resultCount: results } : {}) });
     }
     return { validated: out.some((t) => t.verdict === 'validated'), tools: out };
   };
 
-  const services: HarnessServices = { scope, http, logger: ctx.logger, validate, ...(budget.maxAgentInspections > 0 ? { inspect } : {}) };
+  // The browsing session (D27) shares the runtime and is created when the model first opens a page; its opens count as inspections.
+  let session: BrowseSession | undefined;
+  const browse = async (): Promise<BrowseSession> => {
+    session ??= new BrowseSession(await getRuntime(), { scope, pageLoadTimeoutMs: budget.pageLoadTimeoutMs, settleTimeoutMs: budget.settleTimeoutMs, maxElementsPerPage: budget.maxElementsPerPage, maxLinksPerPage: budget.maxLinksPerPage, maxActions: budget.maxAgentActions, maxOpens: Math.max(1, budget.maxAgentInspections) });
+    return session;
+  };
+  const withBrowser = budget.maxAgentInspections > 0;
+  const services: HarnessServices = { scope, http, logger: ctx.logger, validate, ...(withBrowser ? { inspect } : {}), ...(withBrowser && budget.maxAgentActions > 0 ? { browse } : {}) };
   try {
-    const { model } = await runModelHarness(client, baseline, sources, services, { maxTurns: budget.maxAgentTurns, maxFetches: budget.maxAgentFetches, maxInspections: budget.maxAgentInspections, maxProposals: budget.maxAgentProposals, maxTokens: budget.maxAgentTokens });
+    const { model } = await runModelHarness(client, baseline, sources, services, { maxTurns: budget.maxAgentTurns, maxFetches: budget.maxAgentFetches, maxInspections: budget.maxAgentInspections, maxActions: budget.maxAgentActions, maxProposals: budget.maxAgentProposals, maxTokens: budget.maxAgentTokens });
     if (model.agent?.error) ctx.logger.warn(`model: harness stopped early: ${model.agent.error}`);
     return model;
   } finally {
+    await session?.close();
     await runtime?.close();
     await http.close();
   }

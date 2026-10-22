@@ -13,13 +13,16 @@ import { extractPageData, shapeOfValue } from '../html/pageData.js';
 import { isGraphQLReadOnly, parseGraphQLRequest } from '../net/graphql.js';
 import { hostnameOf, sameSite } from '../net/url.js';
 import type { ToolValidation } from '../schemas/validationReport.js';
+import { BrowseRefusal, browseToolDefinitions, type BrowseSession, type WorkflowProposal } from './browse.js';
 
-export const HARNESS_PROMPT_VERSION = '2026-10-22.2';
+export const HARNESS_PROMPT_VERSION = '2026-10-22.3';
 
 export interface HarnessBudget {
   maxTurns: number;
   maxFetches: number;
   maxInspections: number;
+  /** Browser actions (clicks, fills, selections, presses) in the browsing session (D27). */
+  maxActions: number;
   maxProposals: number;
   maxTokens: number;
 }
@@ -47,6 +50,8 @@ export interface HarnessServices {
   http: SafeHttpClient;
   /** Browser inspection; absent when no browser is available. */
   inspect?: (url: string) => Promise<InspectionSummary>;
+  /** The model's browsing session (D27), created on first use; absent when the action budget is zero or there is no browser. */
+  browse?: () => Promise<BrowseSession>;
   /** Generate tools for a capability and replay them against the live site. */
   validate: (capability: Capability, model: WebsiteModelData) => Promise<ProposalVerdict>;
   logger: Logger;
@@ -71,7 +76,8 @@ How this works:
 - Only read-only capabilities: GET requests, or GraphQL query operations. Never propose anything that writes, signs in, pays or sends.
 - An API candidate whose requests carried an authorization-style header (credentialSource "header") cannot be proposed unless the operator configured that credential. One flagged only by a cookie name (credentialSource "cookie", often a chat widget or analytics cookie) may be proposed: the tool sends no cookies and the replay decides.
 - Prefer the site's own JSON or GraphQL endpoints over pages, and server-rendered pages over client-rendered ones; an agent is judged by what it can call without a browser.
-- Budgets are finite (turns, fetches, inspections, proposals, tokens). Spend them on what changes the outcome. Call set_site_summary as soon as you understand the site, and call finish with a short summary before the turn budget runs out; the harness reminds you when two turns remain.`;
+- When the browsing tools are offered (browse_open, browse_act, browse_read, propose_workflow), use them for what static evidence cannot show: a client-rendered app, a search behind clicks, a custom dropdown. Every page the session opens and every XHR/fetch it causes is returned to you, including the app's own POST requests (allowed when the page makes them; you still cannot propose a write). When the session reached results, call browse_read to find the result items, then propose_workflow to turn the recorded actions into a tool: the harness replays it in a fresh browser with your input bindings before it is kept.
+- Budgets are finite (turns, fetches, inspections, browser actions, proposals, tokens). Spend them on what changes the outcome. Call set_site_summary as soon as you understand the site, and call finish with a short summary before the turn budget runs out; the harness reminds you when two turns remain.`;
 
 interface ProposalInput {
   kind: 'search' | 'list' | 'detail';
@@ -291,11 +297,11 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
   const model: WebsiteModelData = structuredClone(base);
   const record: AgentRecord = { applied: true, model: client.id, turns: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, toolCalls: [], proposals: { accepted: [], rejected: [] }, revisions: [], finished: false };
   const known = evidenceIndex(sources);
-  const used = { fetches: 0, inspections: 0, proposals: 0 };
+  const used = { fetches: 0, inspections: 0, actions: 0, proposals: 0 };
   /** Entities the model added or renamed: kept even when no capability references them. */
   const touchedEntities = new Set<string>();
   const originHost = hostnameOf(services.scope.data.origin);
-  const tools = harnessTools(Boolean(services.inspect));
+  const tools = [...harnessTools(Boolean(services.inspect)), ...(services.browse ? browseToolDefinitions() : [])];
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: [{ type: 'text', text: `Evidence for ${model.site.origin} (JSON data):\n${buildHarnessPayload(model, sources)}`, cache_control: { type: 'ephemeral' } }] }];
 
   const handlers: Record<string, (input: Record<string, unknown>) => Promise<unknown>> = {
@@ -584,6 +590,62 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
       return { hypothesesKept: kept };
     },
 
+    async browse_open(input) {
+      if (!services.browse) throw new HarnessError('no browsing session is available');
+      const session = await services.browse();
+      const summary = await session.open(String(input['url']));
+      known.get('PageModel')?.add(summary.url) ?? known.set('PageModel', new Set([summary.url]));
+      return summary;
+    },
+    async browse_act(input) {
+      if (!services.browse) throw new HarnessError('no browsing session is available');
+      if (used.actions >= budget.maxActions) throw new HarnessError('browser action budget exhausted');
+      const session = await services.browse();
+      used.actions += 1;
+      const summary = await session.act({ action: input['action'] as 'click' | 'fill' | 'select' | 'press', elementId: String(input['elementId']), value: input['value'] as string | null | undefined, key: input['key'] as string | null | undefined });
+      known.get('PageModel')?.add(summary.url) ?? known.set('PageModel', new Set([summary.url]));
+      return summary;
+    },
+    async browse_read(input) {
+      if (!services.browse) throw new HarnessError('no browsing session is available');
+      const session = await services.browse();
+      return session.read({ mode: input['mode'] as 'text' | 'items', selector: input['selector'] as string | null | undefined });
+    },
+    async propose_workflow(raw) {
+      if (!services.browse) throw new HarnessError('no browsing session is available');
+      if (used.proposals >= budget.maxProposals) throw new HarnessError('proposal budget exhausted');
+      used.proposals += 1;
+      const input = raw as unknown as WorkflowProposal;
+      const reject = (reason: string): never => {
+        record.proposals.rejected.push({ name: input.name, reason });
+        throw new HarnessError(`rejected: ${reason}`);
+      };
+      if (model.capabilities.some((c) => c.name === input.name)) reject(`a capability named ${input.name} already exists; revise it or choose another name`);
+      if (!acceptableText(input.title) || !acceptableText(input.description)) reject('title or description reads like an instruction');
+      for (const ref of input.evidence) if (!known.get(ref.artifactType)?.has(ref.refId)) reject(`evidence ${ref.artifactType}/${ref.refId} does not exist`);
+      const session = await services.browse();
+      let capability: Capability;
+      try {
+        capability = session.buildWorkflowCapability(input, model.site.origin);
+      } catch (err) {
+        if (err instanceof BrowseRefusal) reject(err.message);
+        throw err;
+      }
+      // The program replays in a fresh context: the proposal is kept only when the tool validates with the example inputs.
+      const verdict = await services.validate(capability, model);
+      if (!verdict.validated) {
+        const reasons = verdict.tools.map((t) => `${t.name} (${t.transport}): ${t.verdict}${t.reason ? `, ${t.reason}` : ''}`).join('; ') || 'no tool could be generated from this program';
+        reject(`validation failed: ${reasons}`);
+      }
+      if (capability.inputs.length === 0 && input.kind !== 'detail') {
+        const most = Math.max(...verdict.tools.filter((t) => t.verdict === 'validated').map((t) => t.resultCount ?? 0));
+        if (most < 3) reject(`a workflow with no inputs must return three or more results on replay; it returned ${most}. Bind an input to one of the recorded actions`);
+      }
+      if (capability.entity) touchedEntities.add(capability.entity);
+      model.capabilities.push(capability);
+      record.proposals.accepted.push(capability.name);
+      return { accepted: true, capabilityId: capability.capabilityId, tools: verdict.tools };
+    },
     async finish(input) {
       record.finished = true;
       record.stoppedBecause = `finished: ${String(input['summary']).slice(0, 300)}`;
@@ -591,7 +653,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
     },
   };
 
-  const system = `${HARNESS_SYSTEM}\n\nBudget: ${budget.maxTurns} turns, ${budget.maxFetches} HTTP reads, ${budget.maxInspections} browser inspections, ${budget.maxProposals} proposals.`;
+  const system = `${HARNESS_SYSTEM}\n\nBudget: ${budget.maxTurns} turns, ${budget.maxFetches} HTTP reads, ${budget.maxInspections} browser inspections${services.browse ? `, ${budget.maxActions} browser actions` : ''}, ${budget.maxProposals} proposals.`;
   let reminded = false;
   try {
     while (record.turns < budget.maxTurns && !record.finished) {
@@ -629,7 +691,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
           ok = false;
           text = err instanceof Error ? err.message : String(err);
         }
-        const note = call.name === 'propose_capability' ? `${String(input['name'])}: ${ok ? 'accepted' : text.slice(0, 160)}` : ok ? String(input['id'] ?? input['url'] ?? input['name'] ?? input['capabilityId'] ?? '').slice(0, 120) : text.slice(0, 160);
+        const note = call.name === 'propose_capability' || call.name === 'propose_workflow' ? `${String(input['name'])}: ${ok ? 'accepted' : text.slice(0, 160)}` : ok ? String(input['id'] ?? input['url'] ?? input['name'] ?? input['capabilityId'] ?? '').slice(0, 120) : text.slice(0, 160);
         record.toolCalls.push({ turn: record.turns, tool: call.name, ok, note });
         services.logger.debug(`harness turn ${record.turns}: ${call.name} ${ok ? 'ok' : 'error'} ${note}`);
         results.push({ type: 'tool_result', tool_use_id: call.id, content: text, ...(ok ? {} : { is_error: true }) });

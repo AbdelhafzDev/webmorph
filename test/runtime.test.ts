@@ -81,16 +81,23 @@ describe('BrowserRuntime network policy', () => {
     const runtime = new BrowserRuntime({ scope: scopeFor(['127.0.0.1'], { pathPatterns: ['^/privacy'] }), allowPrivate: true, userAgent: 'test' });
     await runtime.launch();
     try {
-      const { context, stats, close } = await runtime.newContext();
+      const { context, stats, close, setAppRequests } = await runtime.newContext();
       const page = await context.newPage();
       await gotoWithPolicy(page, `${site.baseUrl}/`, { timeout: 15_000 });
       await page.setContent(`<html><body><script src="${site.baseUrl}/r-script"></script></body></html>`, { waitUntil: 'load' });
       expect(site.requests).toContain('/app.js');
 
+      // D27: the page's own same-site POST is allowed while app requests are on (load, search-like actions) and recorded as such…
       const postsBefore = site.posts.length;
       await page.evaluate(() => fetch('/api/wishlist', { method: 'POST', body: '{}' }).catch(() => undefined));
       await page.waitForTimeout(300);
-      expect(site.posts.length).toBe(postsBefore);
+      expect(site.posts.length).toBe(postsBefore + 1);
+      expect(stats.network.find((r) => r.url.endsWith('/api/wishlist'))).toMatchObject({ method: 'POST', allowedAs: 'app-request' });
+      // …and refused once the actor turns them off, as every toggle-style probe does before acting (the R6 guarantee).
+      setAppRequests(false);
+      await page.evaluate(() => fetch('/api/wishlist', { method: 'POST', body: '{}' }).catch(() => undefined));
+      await page.waitForTimeout(300);
+      expect(site.posts.length).toBe(postsBefore + 1);
       expect(stats.blockedWrites).toBeGreaterThanOrEqual(1);
 
       const p5 = await context.newPage();

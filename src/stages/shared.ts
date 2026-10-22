@@ -71,6 +71,7 @@ export const DEFAULT_BUDGET: Budget = {
   maxAgentTurns: 24,
   maxAgentFetches: 20,
   maxAgentInspections: 6,
+  maxAgentActions: 40,
   maxAgentProposals: 12,
   maxAgentTokens: 600_000,
 };

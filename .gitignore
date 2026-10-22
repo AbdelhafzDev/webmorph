@@ -13,3 +13,4 @@ docs/comparisons/haraj.md
 .env
 .env.*
 !.env.example
+docs/comparisons/sar.md

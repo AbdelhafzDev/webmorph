@@ -43,6 +43,7 @@ export const Budget = z.object({
   maxAgentTurns: z.number().int().positive().default(24).describe('Model turns in the stage 8 harness loop.'),
   maxAgentFetches: z.number().int().nonnegative().default(20).describe('Pages and JSON endpoints the model may read over HTTP during stage 8.'),
   maxAgentInspections: z.number().int().nonnegative().default(6).describe('Pages the model may open in the browser during stage 8.'),
+  maxAgentActions: z.number().int().nonnegative().default(40).describe('Clicks, fills, selections and key presses the model may perform in its browsing session (D27).'),
   maxAgentProposals: z.number().int().nonnegative().default(12).describe('Capability proposals the model may submit for validation.'),
   maxAgentTokens: z.number().int().positive().default(600_000).describe('Input plus output tokens the harness may spend before it stops.'),
 });

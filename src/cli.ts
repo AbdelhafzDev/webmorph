@@ -89,6 +89,7 @@ program
   .option('--agent-turns <n>', 'model turns in the stage 8 harness loop', int, 24)
   .option('--agent-fetches <n>', 'pages and JSON endpoints the harness may read over HTTP', int, 20)
   .option('--agent-inspections <n>', 'pages the harness may open in the browser', int, 6)
+  .option('--agent-actions <n>', 'clicks, fills, selections and key presses the harness may perform while browsing (D27)', int, 40)
   .option('--agent-proposals <n>', 'capability proposals the harness may submit for validation', int, 12)
   .option('--no-validate', 'generate tools but skip replay validation')
   .option('--validation-runs <n>', 'replays per tool during validation', int, 2)
@@ -117,6 +118,7 @@ program
           maxAgentTurns: opts.agentTurns,
           maxAgentFetches: opts.agentFetches,
           maxAgentInspections: opts.agentInspections,
+          maxAgentActions: opts.agentActions,
           maxAgentProposals: opts.agentProposals,
           maxPagesToInspect: opts.inspectPages,
           maxProbesTotal: opts.maxProbes,

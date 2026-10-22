@@ -108,6 +108,8 @@ export * from './model/facts.js';
 export * from './model/llm.js';
 export * from './model/agent.js';
 export * from './model/openai.js';
+export * from './model/browse.js';
+export * from './tools/generateProgram.js';
 export * from './model/provider.js';
 export * from './model/skill.js';
 export * from './tools/jsonschema.js';

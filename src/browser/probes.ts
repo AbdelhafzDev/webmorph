@@ -239,7 +239,7 @@ export async function executeProbe(runtime: BrowserRuntime, plan: ProbePlan, bud
     durationMs: 0,
     restored: true,
   };
-  const { context, stats, close } = await runtime.newContext({ pageUrl: plan.pageUrl, probeId });
+  const { context, stats, close, setAppRequests } = await runtime.newContext({ pageUrl: plan.pageUrl, probeId });
   const overall = budget.pageLoadTimeoutMs + budget.settleTimeoutMs * 3 + 10_000;
   let timer: NodeJS.Timeout | undefined;
   const deadline = new Promise<never>((_, reject) => {
@@ -254,6 +254,8 @@ export async function executeProbe(runtime: BrowserRuntime, plan: ProbePlan, bud
     const before = toPageState(await quickState(page));
     record.before = before;
 
+    // D27: the page may answer a search, filter or page change with its own requests; a toggle, tab, menu or dialog may not hide a write behind them.
+    setAppRequests(plan.kind === 'search-submit' || plan.kind === 'filter-change' || plan.kind === 'pagination' || plan.kind === 'form-submit-write');
     const locator = toLocator(page, plan.action.locator);
     const count = await locator.count();
     if (count === 0) {

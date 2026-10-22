@@ -18,6 +18,8 @@ export interface FixtureSite {
   graphql: Array<{ operationName?: string; type: 'query' | 'mutation' }>;
   /** Calls to the keyed API (/api/keyed/products): whether each carried the expected bearer key. */
   keyedCalls: Array<'authorized' | 'unauthorized'>;
+  /** Consequential purchases from the /app single-page app. Must stay empty under WebMorph. */
+  buys: string[];
   /** Calls to the public events feed (/api/events): whether each carried the widget's session-like cookie. */
   eventCalls: Array<'with-cookie' | 'without-cookie'>;
   /** Change behavior at runtime to simulate the site changing under a validated tool. */
@@ -87,12 +89,12 @@ const events = [
   { id: 3, title: 'Schema Summit', date: '2026-11-17', venue: 'Main stage' },
 ];
 
-
 export async function startFixtureSite(options: FixtureOptions = {}): Promise<FixtureSite> {
   const requests: string[] = [];
   const posts: string[] = [];
   const graphql: Array<{ operationName?: string; type: 'query' | 'mutation' }> = [];
   const keyedCalls: Array<'authorized' | 'unauthorized'> = [];
+  const buys: string[] = [];
   const eventCalls: Array<'with-cookie' | 'without-cookie'> = [];
   let retryHits = 0;
   let flakyHits = 0;
@@ -302,6 +304,46 @@ fetch('/api/events/digest', { headers: { accept: 'application/json', authorizati
       }
       case '/api/wishlist':
         return send(req.method === 'POST' ? 201 : 405, 'application/json', '{"ok":true}');
+      case '/app':
+        // A single-page app, unlinked from the rest of the site: it logs in as a guest with a POST on load (like a
+        // real booking app), renders nothing without that session, then offers a custom dropdown and a Find button
+        // whose search is a POST as well. The Buy button is consequential and must never be clicked by WebMorph.
+        return html(200, `<!doctype html><html lang="en"><head><title>Trip finder</title></head><body><div id="root"><p>Loading…</p></div>
+<script>
+(async function () {
+  var session = await fetch('/api/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: 'guest', password: 'guest-public', clientKey: 'web' }) }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  if (!session) return;
+  var root = document.getElementById('root');
+  root.innerHTML = '<h1>Trip finder</h1><div class="picker"><button id="cat-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="cat-list">Category: any</button><ul id="cat-list" role="listbox" hidden><li role="option" data-value="cheap">Cheap</li><li role="option" data-value="premium">Premium</li></ul></div><button id="find" type="button">Find trips</button> <button id="buy" type="button">Buy now</button><section id="results" aria-live="polite"></section>';
+  var category = '';
+  var btn = document.getElementById('cat-btn'), list = document.getElementById('cat-list');
+  btn.addEventListener('click', function () { var open = btn.getAttribute('aria-expanded') === 'true'; btn.setAttribute('aria-expanded', String(!open)); list.hidden = open; });
+  list.querySelectorAll('[role=option]').forEach(function (o) { o.addEventListener('click', function () { category = o.getAttribute('data-value'); btn.textContent = 'Category: ' + o.textContent; o.setAttribute('aria-selected', 'true'); list.hidden = true; btn.setAttribute('aria-expanded', 'false'); }); });
+  document.getElementById('find').addEventListener('click', async function () {
+    var items = await fetch('/api/search', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + session.token }, body: JSON.stringify({ category: category }) }).then(function (r) { return r.json(); });
+    document.getElementById('results').innerHTML = '<h2>' + items.length + ' trips</h2>' + items.map(function (t) { return '<article class="trip"><h3 class="name">' + t.name + '</h3><span class="price">' + t.price + ' SAR</span><span class="duration">' + t.duration + '</span><a class="more" href="/products/' + t.id + '">Details</a></article>'; }).join('');
+  });
+  document.getElementById('buy').addEventListener('click', function () { fetch('/api/buy', { method: 'POST', body: '{}' }); });
+})();
+</script></body></html>`);
+      case '/api/session':
+        if (req.method !== 'POST') return send(405, 'application/json', '{"error":"POST only"}');
+        return send(200, 'application/json', '{"token":"guest-token"}');
+      case '/api/search': {
+        if (req.method !== 'POST') return send(405, 'application/json', '{"error":"POST only"}');
+        let raw = '';
+        req.on('data', (c: Buffer) => (raw += c.toString('utf8')));
+        req.on('end', () => {
+          let body: { category?: string } = {};
+          try { body = JSON.parse(raw); } catch { /* ignore */ }
+          const items = products.filter((p) => !body.category || (body.category === 'cheap' ? p.price <= 30 : p.price > 30)).map((p) => ({ id: p.id, name: p.name, price: p.price, duration: `${p.id}h ${(p.id * 7) % 60}m` }));
+          send(200, 'application/json', JSON.stringify(items));
+        });
+        return;
+      }
+      case '/api/buy':
+        buys.push(url.pathname);
+        return send(201, 'application/json', '{"ok":true}');
       case '/flaky-redirect':
         flakyHits += 1;
         if (flakyHits % 2 === 1) {
@@ -411,6 +453,7 @@ fetch('/api/events/digest', { headers: { accept: 'application/json', authorizati
     posts,
     graphql,
     keyedCalls,
+    buys,
     eventCalls,
     setMode: (m) => {
       mode = m;

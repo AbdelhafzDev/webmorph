@@ -29,6 +29,7 @@ export const NetworkRecord = z.object({
   bytes: z.number().int().nonnegative().optional(),
   inScope: z.boolean(),
   error: z.string().optional(),
+  allowedAs: z.enum(['app-request']).optional().describe('A non-GET XHR/fetch the page itself issued to the site\'s hosts, allowed under D27 and never promoted to a tool.'),
   graphql: z
     .array(z.object({ operationName: z.string().optional(), operationType: z.enum(['query', 'mutation', 'subscription', 'unknown']), query: z.string(), variables: z.record(z.string(), z.unknown()).optional(), variableNames: z.array(z.string()) }))
     .optional()

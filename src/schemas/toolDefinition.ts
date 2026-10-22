@@ -56,7 +56,22 @@ export const HtmlListExtractor = z.object({
   maxItems: z.number().int().positive(),
 });
 
-export const Extractor = z.discriminatedUnion('kind', [LinkListExtractor, PageFieldsExtractor, JsonExtractor, HtmlDataExtractor, HtmlListExtractor]);
+/** Repeated result items read in the browser with per-field selectors, as the model observed them (D27). */
+export const ItemListExtractor = z.object({
+  kind: z.literal('item-list'),
+  into: z.string().default('results'),
+  item: z.string().describe('CSS selector matching each result item.'),
+  fields: z.record(
+    z.string(),
+    z.object({
+      selector: z.string().optional().describe('CSS selector relative to the item; the item itself when omitted.'),
+      attr: z.string().optional().describe('Attribute to read instead of the text, e.g. href (resolved to an absolute URL).'),
+    }),
+  ),
+  maxItems: z.number().int().positive(),
+});
+
+export const Extractor = z.discriminatedUnion('kind', [LinkListExtractor, PageFieldsExtractor, JsonExtractor, HtmlDataExtractor, HtmlListExtractor, ItemListExtractor]);
 export type Extractor = z.infer<typeof Extractor>;
 
 /** One instruction of a declarative tool program. Interpreted by the runtime; never executed as code. */
@@ -66,6 +81,7 @@ export const ToolStep = z.discriminatedUnion('op', [
     url: z.string().describe('Absolute URL template. {{input}} placeholders are URL-encoded.'),
     query: z.record(z.string(), z.string()).optional().describe('Query parameter name to input name; added only when the input is provided.'),
   }),
+  // Locator values may carry {{input}} placeholders (an option named after an input, for example); they are rendered at run time.
   z.object({ op: z.literal('fill'), locator: LocatorCandidate, valueFrom: z.string() }),
   z.object({ op: z.literal('select'), locator: LocatorCandidate, valueFrom: z.string() }),
   z.object({ op: z.literal('click'), locator: LocatorCandidate }),

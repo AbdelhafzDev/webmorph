@@ -5,6 +5,7 @@ import { PolicyProxy } from './proxy.js';
 import type { NetworkRecord } from '../schemas/networkEvidence.js';
 import { cookieNames, credentialHeaderNames, isCredentialed, keysOfJson, redactUrl, shapeOfJson } from '../net/redact.js';
 import { isGraphQLReadOnly, parseGraphQLRequest } from '../net/graphql.js';
+import { hostnameOf, sameSite } from '../net/url.js';
 
 export interface RuntimeOptions {
   scope: ScopePolicy;
@@ -15,6 +16,13 @@ export interface RuntimeOptions {
   blockHeavyResources?: boolean;
   /** Permit non-GET requests to in-scope hosts (operator opted into write probes). Default false. */
   allowWrites?: boolean;
+  /**
+   * Refuse every non-GET request, including the page's own XHR and fetch calls (pre-D27 behavior).
+   * Default false: a page's own non-GET XHR/fetch to the site's hosts is allowed and recorded as an
+   * app request, because WebMorph's actions stay read-only by construction and a single-page app
+   * cannot render without them.
+   */
+  strictMethods?: boolean;
   /** Redirect hops followed per request. Default 5. */
   maxRedirects?: number;
   executablePath?: string;
@@ -33,10 +41,17 @@ export interface ContextTag {
   probeId?: string;
 }
 
+export interface ContextOptions {
+  /** Hosts whose documents are in scope for this context only (same-site hosts a tool or the harness names). */
+  extraHosts?: string[];
+}
+
 export interface ContextStats {
   blockedRequests: number;
   blockedUrls: string[];
   blockedWrites: number;
+  /** Non-GET XHR/fetch requests the page issued to the site's own hosts and that were allowed (D27). */
+  appRequests: number;
   graphqlQueries: number;
   blockedWebSockets: number;
   refusedRedirects: Array<{ from: string; to: string; reason: string }>;
@@ -45,11 +60,17 @@ export interface ContextStats {
   network: NetworkRecord[];
   networkTruncated: boolean;
   tag: ContextTag;
+  /** Scope for this context when it widens the runtime's (extra same-site hosts). */
+  scope?: ScopePolicy;
+  /** D27: whether the page's own non-GET requests are allowed right now. True on load and after read-query actions; an actor turns it off before a toggle-style action. */
+  appRequestsAllowed: boolean;
 }
 
 export interface IsolatedContext {
   context: BrowserContext;
   stats: ContextStats;
+  /** Allow or refuse the page's own non-GET requests from now on (D27). */
+  setAppRequests(allowed: boolean): void;
   close(): Promise<void>;
 }
 
@@ -100,9 +121,9 @@ export class BrowserRuntime {
     return this.proxy?.refusals ?? [];
   }
 
-  async newContext(tag: ContextTag = { pageUrl: 'about:blank' }): Promise<IsolatedContext> {
+  async newContext(tag: ContextTag = { pageUrl: 'about:blank' }, options: ContextOptions = {}): Promise<IsolatedContext> {
     if (!this.browser) throw new Error('BrowserRuntime.launch() must be called first');
-    const stats: ContextStats = { blockedRequests: 0, blockedUrls: [], blockedWrites: 0, graphqlQueries: 0, blockedWebSockets: 0, refusedRedirects: [], failedRequests: [], consoleErrors: [], network: [], networkTruncated: false, tag };
+    const stats: ContextStats = { blockedRequests: 0, blockedUrls: [], blockedWrites: 0, appRequests: 0, graphqlQueries: 0, blockedWebSockets: 0, refusedRedirects: [], failedRequests: [], consoleErrors: [], network: [], networkTruncated: false, tag, appRequestsAllowed: true, ...(options.extraHosts?.length ? { scope: this.options.scope.withHosts(options.extraHosts) } : {}) };
     const context = await this.browser.newContext({
       userAgent: this.options.userAgent,
       viewport: this.options.viewport ?? { width: 1280, height: 900 },
@@ -132,7 +153,7 @@ export class BrowserRuntime {
       });
     });
 
-    return { context, stats, close: () => context.close().catch(() => {}) };
+    return { context, stats, setAppRequests: (allowed) => { stats.appRequestsAllowed = allowed; }, close: () => context.close().catch(() => {}) };
   }
 
   private async handleRoute(route: Route, stats: ContextStats): Promise<void> {
@@ -146,13 +167,19 @@ export class BrowserRuntime {
     const graphql = request.method().toUpperCase() === 'POST' ? parseGraphQLRequest(request.headers()['content-type'], request.postData()) : null;
     const readOnlyGraphQL = isGraphQLReadOnly(graphql);
     if (readOnlyGraphQL) stats.graphqlQueries += 1;
-    const decision = await this.decide(request.url(), request.resourceType(), readOnlyGraphQL ? 'GET' : request.method());
+    const method = readOnlyGraphQL ? 'GET' : request.method();
+    // A GraphQL mutation or subscription is a write whatever D27 says about app requests; so is any non-GET while the actor has turned app requests off.
+    const graphqlWrite = Boolean(graphql) && !readOnlyGraphQL;
+    const decision = graphqlWrite || (!stats.appRequestsAllowed && !SAFE_METHODS.has(method.toUpperCase())) ? (this.options.allowWrites && (stats.scope ?? this.options.scope).isInScope(request.url()) && !graphqlWrite ? 'allow' : 'write') : await this.decide(request.url(), request.resourceType(), method, stats.scope);
     if (decision !== 'allow') {
       if (decision === 'write') stats.blockedWrites += 1;
       await this.record(stats, request, undefined, `refused: ${decision}`);
       await block(request.url());
       return;
     }
+    // A non-GET the policy let through is the page's own app request (D27); say so in the evidence.
+    const allowedAs = SAFE_METHODS.has(method.toUpperCase()) ? undefined : ('app-request' as const);
+    if (allowedAs) stats.appRequests += 1;
 
     // Fetch ourselves with redirects disabled so every hop is checked.
     let response: Awaited<ReturnType<Route['fetch']>>;
@@ -179,7 +206,7 @@ export class BrowserRuntime {
         return;
       }
       hops += 1;
-      const verdict = await this.decide(target, request.resourceType(), 'GET');
+      const verdict = await this.decide(target, request.resourceType(), 'GET', stats.scope);
       if (verdict !== 'allow' || hops > (this.options.maxRedirects ?? 5)) {
         stats.refusedRedirects.push({ from: current, to: target, reason: verdict !== 'allow' ? verdict : 'too many redirects' });
         await block(target);
@@ -200,14 +227,14 @@ export class BrowserRuntime {
       current = target;
     }
 
-    await this.record(stats, request, response, undefined, current);
+    await this.record(stats, request, response, undefined, current, allowedAs);
     const headers: Record<string, string> = {};
     for (const [k, v] of Object.entries(response.headers())) if (!HOP_BY_HOP.has(k.toLowerCase())) headers[k] = v;
     await route.fulfill({ response, headers }).catch(() => {});
   }
 
   /** Evidence record for XHR, fetch and document traffic. Bodies are never stored; shapes are. */
-  private async record(stats: ContextStats, request: Request, response: Awaited<ReturnType<Route['fetch']>> | undefined, error: string | undefined, finalUrl?: string): Promise<void> {
+  private async record(stats: ContextStats, request: Request, response: Awaited<ReturnType<Route['fetch']>> | undefined, error: string | undefined, finalUrl?: string, allowedAs?: 'app-request'): Promise<void> {
     if (this.options.captureNetwork === false) return;
     const type = request.resourceType();
     if (type !== 'xhr' && type !== 'fetch' && type !== 'document') return;
@@ -253,15 +280,21 @@ export class BrowserRuntime {
       ...(requestBodyKeys ? { requestBodyKeys } : {}),
       ...(responseShape ? { responseShape } : {}),
       ...(bytes !== undefined ? { bytes } : {}),
-      inScope: this.options.scope.isInScope(url),
+      inScope: (stats.scope ?? this.options.scope).isInScope(url),
       ...(error ? { error } : {}),
+      ...(allowedAs ? { allowedAs } : {}),
       ...(graphql ? { graphql } : {}),
     };
     stats.network.push(record);
   }
 
-  /** Policy decision for one URL. Never throws. */
-  async decide(rawUrl: string, resourceType: string, method: string): Promise<'allow' | 'scheme' | 'heavy' | 'scope' | 'prohibited' | 'blocked-host' | 'private' | 'write'> {
+  /**
+   * Policy decision for one URL. Never throws. `scope` widens the runtime's scope for one context.
+   * Non-GET: refused, except (a) writes the operator allowed to in-scope hosts, and (b) under D27 the
+   * page's own XHR/fetch requests to in-scope or same-site hosts, which a browser would send anyway and
+   * without which a single-page app renders nothing; those are recorded as app requests and never promoted.
+   */
+  async decide(rawUrl: string, resourceType: string, method: string, scope: ScopePolicy = this.options.scope): Promise<'allow' | 'scheme' | 'heavy' | 'scope' | 'prohibited' | 'blocked-host' | 'private' | 'write'> {
     let url: URL;
     try {
       url = new URL(rawUrl);
@@ -271,10 +304,13 @@ export class BrowserRuntime {
     if (url.protocol === 'data:' || url.protocol === 'blob:' || url.protocol === 'about:') return 'allow';
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'scheme';
     if (this.options.blockHeavyResources !== false && (resourceType === 'image' || resourceType === 'media' || resourceType === 'font')) return 'heavy';
-    const inScope = this.options.scope.isInScope(url.toString());
+    const inScope = scope.isInScope(url.toString());
     if (resourceType === 'document' && !inScope) return 'scope';
-    if (inScope && this.options.scope.isProhibitedPath(url.toString())) return 'prohibited';
-    if (!SAFE_METHODS.has(method.toUpperCase()) && !(this.options.allowWrites && inScope)) return 'write';
+    if (inScope && scope.isProhibitedPath(url.toString())) return 'prohibited';
+    if (!SAFE_METHODS.has(method.toUpperCase())) {
+      const appRequest = !this.options.strictMethods && (resourceType === 'xhr' || resourceType === 'fetch') && (inScope || sameSite(url.hostname, hostnameOf(scope.data.origin)));
+      if (!appRequest && !(this.options.allowWrites && inScope)) return 'write';
+    }
     if (!this.options.allowPrivate) {
       if (isBlockedHostname(url.hostname)) return 'blocked-host';
       if (!(await this.hostIsPublic(url.hostname))) return 'private';

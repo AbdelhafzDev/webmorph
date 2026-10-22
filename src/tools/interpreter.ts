@@ -5,6 +5,7 @@ import type { ToolRunResult } from '../schemas/validationReport.js';
 import { gotoWithPolicy, type BrowserRuntime } from '../browser/runtime.js';
 import { extractListData } from '../html/listData.js';
 import { toLocator } from '../browser/locators.js';
+import type { LocatorCandidate } from '../schemas/elementInventory.js';
 import { settle } from '../browser/inspect.js';
 import { evaluateInPage } from '../browser/evaluate.js';
 import { detectBlockSignal } from '../html/blocked.js';
@@ -107,12 +108,12 @@ function renderGraphQLBody(g: NonNullable<Extract<ToolStep, { op: 'http' }>['gra
   return JSON.stringify({ operationName: g.operationName, query: g.query, variables });
 }
 
-/** Hosts an http program may call: the scope's hosts plus same-site API hosts named by its steps. */
-function httpHostsFor(tool: ToolSpec, scope: ScopePolicy): string[] {
+/** Same-site hosts a program names in its http or navigate steps and the scope does not already allow. */
+export function toolHostsFor(tool: ToolSpec, scope: ScopePolicy, ops: ReadonlyArray<ToolStep['op']> = ['http', 'navigate']): string[] {
   const origin = hostnameOf(scope.data.origin);
   const extra = new Set<string>();
   for (const s of tool.program) {
-    if (s.op !== 'http') continue;
+    if (!ops.includes(s.op) || !('url' in s)) continue;
     try {
       const host = hostnameOf(s.url.replace(/\{\{[^}]+\}\}/g, 'x'));
       if (!scope.isHostAllowed(host) && sameSite(host, origin)) extra.add(host);
@@ -121,6 +122,51 @@ function httpHostsFor(tool: ToolSpec, scope: ScopePolicy): string[] {
     }
   }
   return Array.from(extra);
+}
+
+/** Hosts an http program may call: the scope's hosts plus same-site API hosts named by its steps. */
+function httpHostsFor(tool: ToolSpec, scope: ScopePolicy): string[] {
+  return toolHostsFor(tool, scope, ['http']);
+}
+
+/** A locator whose value carries {{input}} placeholders, rendered from the inputs. */
+function renderLocator(locator: LocatorCandidate, inputs: Record<string, unknown>): LocatorCandidate {
+  if (!locator.value.includes('{{')) return locator;
+  const value = locator.value.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_, name: string) => {
+    const v = inputs[name];
+    if (v === undefined || v === null) throw new ToolFailure('INPUT_INVALID', `missing input "${name}" for locator`);
+    return String(v);
+  });
+  return { ...locator, value };
+}
+
+/** Browser-side extraction of repeated items with per-field selectors. Self-contained for evaluateInPage. */
+function extractItemListInPage(arg: { item: string; fields: Record<string, { selector?: string; attr?: string }>; maxItems: number }): Array<Record<string, string>> {
+  const out: Array<Record<string, string>> = [];
+  const clean = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
+  for (const node of Array.from(document.querySelectorAll(arg.item))) {
+    const row: Record<string, string> = {};
+    for (const [name, f] of Object.entries(arg.fields)) {
+      const target = f.selector ? node.querySelector(f.selector) : node;
+      if (!target) {
+        row[name] = '';
+        continue;
+      }
+      if (f.attr) {
+        const raw = target.getAttribute(f.attr) ?? '';
+        if (f.attr === 'href' || f.attr === 'src') {
+          try {
+            row[name] = raw ? new URL(raw, location.href).toString() : '';
+          } catch {
+            row[name] = raw;
+          }
+        } else row[name] = raw;
+      } else row[name] = clean((target as HTMLElement).innerText || target.textContent);
+    }
+    if (Object.values(row).some((v) => v)) out.push(row);
+    if (out.length >= arg.maxItems) break;
+  }
+  return out;
 }
 
 /** Browser-side result choice: mark the chosen link so the caller can click exactly it. Self-contained. */
@@ -277,7 +323,10 @@ export async function executeTool(runtime: BrowserRuntime | null, tool: ToolSpec
 
   const needsBrowser = toolNeedsBrowser(tool);
   if (needsBrowser && !runtime) return finish(false, { errorCode: 'RUNTIME_ERROR', errorMessage: 'tool needs a browser but none is available' });
-  const ctx = needsBrowser ? await runtime!.newContext({ pageUrl: tool.name }) : undefined;
+  // A program may navigate same-site hosts the scope does not list (a booking subdomain); they are in scope for this context only.
+  const navigateHosts = needsBrowser ? toolHostsFor(tool, options.scope, ['navigate']) : [];
+  const ctx = needsBrowser ? await runtime!.newContext({ pageUrl: tool.name }, { extraHosts: navigateHosts }) : undefined;
+  const navigateScope = navigateHosts.length ? options.scope.withHosts(navigateHosts) : options.scope;
   const httpScope = tool.program.some((s) => s.op === 'http') ? options.scope.withHosts(httpHostsFor(tool, options.scope)) : options.scope;
   const http = tool.program.some((s) => s.op === 'http')
     ? new SafeHttpClient({ scope: httpScope, allowPrivate: options.scope.data.allowPrivateNetwork, userAgent: options.scope.data.userAgent, requestTimeoutMs: options.pageLoadTimeoutMs, maxResponseBytes: options.http?.maxResponseBytes ?? 5 * 1024 * 1024, maxRedirects: 5, maxRetries: 1, minDelayMs: 0, maxConcurrency: 2, maxRequests: 50, resolver: options.http?.resolver })
@@ -289,7 +338,7 @@ export async function executeTool(runtime: BrowserRuntime | null, tool: ToolSpec
       page = await ctx.context.newPage();
       page.setDefaultTimeout(Math.min(options.pageLoadTimeoutMs, 10_000));
     }
-    const state: StepState = { urlBeforeAction: undefined, http, httpScope };
+    const state: StepState = { urlBeforeAction: undefined, http, httpScope, navigateScope };
     for (const step of tool.program) {
       const stepStarted = Date.now();
       try {
@@ -323,6 +372,7 @@ interface StepState {
   urlBeforeAction: string | undefined;
   http?: SafeHttpClient;
   httpScope?: ScopePolicy;
+  navigateScope?: ScopePolicy;
   lastHttp?: { url: string; status: number; contentType?: string; body: string };
 }
 
@@ -403,14 +453,14 @@ async function runStep(page: Page | undefined, step: ToolStep, inputs: Record<st
     case 'navigate': {
       state.urlBeforeAction = undefined;
       const url = renderUrl(step, inputs);
-      if (!options.scope.isInScope(url)) throw new ToolFailure('OUT_OF_SCOPE', `refusing to open ${url}`);
+      if (!(state.navigateScope ?? options.scope).isInScope(url)) throw new ToolFailure('OUT_OF_SCOPE', `refusing to open ${url}`);
       let response;
       try {
         ({ response } = await gotoWithPolicy(page, url, { timeout: options.pageLoadTimeoutMs }));
       } catch (err) {
         throw classifyError(err);
       }
-      if (!options.scope.isInScope(page.url())) throw new ToolFailure('OUT_OF_SCOPE', `landed on ${page.url()}`);
+      if (!(state.navigateScope ?? options.scope).isInScope(page.url())) throw new ToolFailure('OUT_OF_SCOPE', `landed on ${page.url()}`);
       const status = response?.status();
       if (status !== undefined && status >= 400) {
         const body = await page.evaluate(() => document.documentElement.outerHTML.slice(0, 20000)).catch(() => '');
@@ -425,7 +475,7 @@ async function runStep(page: Page | undefined, step: ToolStep, inputs: Record<st
     case 'select':
     case 'click':
     case 'press': {
-      const locator = toLocator(page, step.locator);
+      const locator = toLocator(page, renderLocator(step.locator, inputs));
       if ((await locator.count()) === 0) throw new ToolFailure('LOCATOR_MISSING', `${step.locator.strategy} ${step.locator.value} not found`);
       const target = locator.first();
       state.urlBeforeAction = page.url();
@@ -481,6 +531,11 @@ async function runStep(page: Page | undefined, step: ToolStep, inputs: Record<st
       if (ex.kind === 'json' || ex.kind === 'html-data' || ex.kind === 'html-list') return;
       if (ex.kind === 'link-list') {
         const results = await evaluateInPage(page, extractLinkListInPage, { scope: ex.scope, hrefPattern: ex.hrefPattern, excludeHrefPattern: ex.excludeHrefPattern, maxItems: ex.maxItems, allowedHosts: Array.from(options.scope.allowedHosts) });
+        output[ex.into] = results;
+        output['count'] = results.length;
+        output['pageUrl'] = page.url();
+      } else if (ex.kind === 'item-list') {
+        const results = await evaluateInPage(page, extractItemListInPage, { item: ex.item, fields: ex.fields, maxItems: ex.maxItems });
         output[ex.into] = results;
         output['count'] = results.length;
         output['pageUrl'] = page.url();

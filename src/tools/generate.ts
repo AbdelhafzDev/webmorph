@@ -7,6 +7,7 @@ import { escapeRegex } from '../model/naming.js';
 import { describeEmbedded } from '../html/pageData.js';
 import type { PageSample } from './sample.js';
 import type { WorkflowDefinitionRecord } from '../schemas/workflowDefinition.js';
+import { generateProgramTool } from './generateProgram.js';
 
 export interface GenerateOptions {
   pageLoadTimeoutMs: number;
@@ -478,7 +479,7 @@ export function generateToolSet(model: WebsiteModelData, options: GenerateOption
   for (const cap of model.capabilities) {
     if (cap.sideEffectClass !== 'read') continue; // v1 publishes read-only tools only
     const http = generateApiTool(cap, model, options) ?? generatePageDataTool(cap, model, options) ?? generateListHttpTool(cap, model, options);
-    const browser = generateTool(cap, model, options);
+    const browser = cap.mechanics.program ? generateProgramTool(cap, model, options) : generateTool(cap, model, options);
     if (browser && http) {
       browser.name = `${cap.name}_browser`;
       browser.title = `${browser.title} (browser)`;
