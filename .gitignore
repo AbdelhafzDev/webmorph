@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.webmorph/
+schemas/
+*.log
+.DS_Store
+.scratch/
+
+# Internal comparison, not published
+docs/comparisons/haraj.md
