@@ -1,0 +1,386 @@
+{
+  "label": "fields-2026-10-25",
+  "date": "2026-10-25T10:04:41.639Z",
+  "provider": "openai",
+  "runs": 2,
+  "cards": [
+    {
+      "site": "haraj",
+      "run": 1,
+      "jobId": "20261025T095411Z-58497131",
+      "status": "completed",
+      "wallMs": 252976,
+      "tools": {
+        "total": 12,
+        "validated": 10,
+        "httpValidated": 5,
+        "browserValidated": 5,
+        "failed": [
+          "list_classified_ads_by_city",
+          "list_classified_ads_by_city_browser"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_classified_ads",
+        "transport": "http",
+        "requiredInputs": [
+          "query"
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
+      },
+      "apiGaps": {},
+      "fieldQuality": {
+        "tools": 8,
+        "meanFields": 4.25,
+        "meanFilled": 0.8479166666666668,
+        "structured": 8
+      },
+      "agent": {
+        "turns": 12,
+        "toolCalls": 28,
+        "accepted": [
+          "list_recent_classified_ads",
+          "list_classified_ads_by_tag",
+          "search_classified_ads",
+          "list_classified_ads_by_city",
+          "get_classified_ad"
+        ],
+        "rejected": 3,
+        "inputTokens": 104557,
+        "outputTokens": 6237,
+        "cacheReadTokens": 237568,
+        "finished": true,
+        "stoppedBecause": "finished: Renamed the site's core entity from generic item to classified_ad, dropped the faulty observed search pattern, revised the Arabic detail capability, and added validated tools for searching ads, listing recent ads, listing by tag, listing by city, and fetching English ad detail pages."
+      },
+      "skill": {
+        "tools": 10,
+        "httpTools": 5,
+        "handoffs": 20,
+        "examples": 10,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "haraj",
+      "run": 2,
+      "jobId": "20261025T095824Z-b0021905",
+      "status": "completed",
+      "wallMs": 289015,
+      "tools": {
+        "total": 13,
+        "validated": 11,
+        "httpValidated": 5,
+        "browserValidated": 6,
+        "failed": [
+          "list_latest_classified_ads",
+          "list_classified_ads_by_city_browser"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_classified_ads",
+        "transport": "http",
+        "requiredInputs": [
+          "query"
+        ],
+        "fields": {
+          "fields": 34,
+          "filled": 0.788515406162465,
+          "structured": true
+        }
+      },
+      "apiGaps": {
+        "client-rendered": 1
+      },
+      "fieldQuality": {
+        "tools": 10,
+        "meanFields": 6.1,
+        "meanFilled": 0.9188515406162466,
+        "structured": 10
+      },
+      "agent": {
+        "turns": 15,
+        "toolCalls": 34,
+        "accepted": [
+          "list_latest_classified_ads",
+          "list_classified_ads_by_tag",
+          "list_classified_ads_by_city",
+          "get_classified_ad_en",
+          "search_classified_ads_by_city",
+          "list_classified_ads_by_seller"
+        ],
+        "rejected": 2,
+        "inputTokens": 126592,
+        "outputTokens": 7055,
+        "cacheReadTokens": 336384,
+        "finished": true,
+        "stoppedBecause": "finished: Modeled Haraj as a Saudi classified-ads marketplace. Renamed the core entity to classified_ad and revised the observed search capability to search_classified_ads. Added validated page-driven tools for latest ads, tag/category listings, city listings, keyword+city search, seller listings, and English"
+      },
+      "skill": {
+        "tools": 11,
+        "httpTools": 5,
+        "handoffs": 20,
+        "examples": 11,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "sar",
+      "run": 1,
+      "jobId": "20261025T094642Z-e57865fe",
+      "status": "completed",
+      "wallMs": 195131,
+      "tools": {
+        "total": 3,
+        "validated": 3,
+        "httpValidated": 1,
+        "browserValidated": 2,
+        "failed": []
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_train_trips",
+        "transport": "browser",
+        "requiredInputs": [
+          "departure_station",
+          "arrival_station",
+          "departure_date",
+          "service_type",
+          "trip_direction"
+        ],
+        "fields": {
+          "fields": 7,
+          "filled": 1,
+          "structured": true
+        }
+      },
+      "apiGaps": {
+        "no-mechanics": 1,
+        "client-rendered": 1
+      },
+      "fieldQuality": {
+        "tools": 2,
+        "meanFields": 4.5,
+        "meanFilled": 1,
+        "structured": 2
+      },
+      "agent": {
+        "turns": 16,
+        "toolCalls": 38,
+        "accepted": [
+          "get_public_page_data",
+          "search_train_trips",
+          "list_featured_routes"
+        ],
+        "rejected": 1,
+        "inputTokens": 86632,
+        "outputTokens": 6731,
+        "cacheReadTokens": 224256,
+        "finished": true,
+        "stoppedBecause": "finished: Finished SAR discovery. Removed the invalid Arabic 404 capability, modeled train trips/public content/featured routes, and validated tools for SAR trip search, Gatsby public page data, and homepage featured routes. Site summary has been set with unresolved notes about protected ticketing APIs and in"
+      },
+      "skill": {
+        "tools": 3,
+        "httpTools": 1,
+        "handoffs": 4,
+        "examples": 3,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "sar",
+      "run": 2,
+      "jobId": "20261025T094957Z-c25ad3b5",
+      "status": "completed",
+      "wallMs": 254065,
+      "tools": {
+        "total": 2,
+        "validated": 2,
+        "httpValidated": 1,
+        "browserValidated": 1,
+        "failed": []
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_train_trips",
+        "transport": "browser",
+        "requiredInputs": [
+          "departure_station",
+          "arrival_station",
+          "departure_date"
+        ],
+        "fields": {
+          "fields": 7,
+          "filled": 1,
+          "structured": true
+        }
+      },
+      "apiGaps": {
+        "no-mechanics": 1
+      },
+      "fieldQuality": {
+        "tools": 1,
+        "meanFields": 7,
+        "meanFilled": 1,
+        "structured": 1
+      },
+      "agent": {
+        "turns": 27,
+        "toolCalls": 65,
+        "accepted": [
+          "search_train_trips",
+          "get_content_page_data"
+        ],
+        "rejected": 0,
+        "inputTokens": 77723,
+        "outputTokens": 6290,
+        "cacheReadTokens": 408064,
+        "finished": true,
+        "stoppedBecause": "finished: Kept the main SAR Tickets train-trip browser workflow, added train_trip and content_page entities, added a validated Gatsby page-data HTTP capability for public content pages, dropped the bogus /ar/404 detail capability, and recorded the site summary plus unresolved limitations around station-code d"
+      },
+      "skill": {
+        "tools": 2,
+        "httpTools": 1,
+        "handoffs": 0,
+        "examples": 2,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "syarah",
+      "run": 1,
+      "jobId": "20261025T094642Z-21893720",
+      "status": "completed",
+      "wallMs": 360806,
+      "tools": {
+        "total": 34,
+        "validated": 32,
+        "httpValidated": 15,
+        "browserValidated": 17,
+        "failed": [
+          "list_cars_by_country_en_browser",
+          "list_new_cars_browser"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_car_inventory",
+        "transport": "browser",
+        "requiredInputs": [
+          "query"
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
+      },
+      "apiGaps": {
+        "client-rendered": 4
+      },
+      "fieldQuality": {
+        "tools": 29,
+        "meanFields": 4.896551724137931,
+        "meanFilled": 0.9781609195402298,
+        "structured": 29
+      },
+      "agent": {
+        "turns": 12,
+        "toolCalls": 41,
+        "accepted": [
+          "list_new_cars",
+          "list_cars_by_country_en",
+          "list_cars_by_city_en",
+          "list_used_cars",
+          "search_car_inventory",
+          "list_cars_by_make_model",
+          "list_cars_by_make_model_year",
+          "list_car_offers_en"
+        ],
+        "rejected": 4,
+        "inputTokens": 65777,
+        "outputTokens": 8549,
+        "cacheReadTokens": 306176,
+        "finished": true,
+        "stoppedBecause": "finished: Improved the Syarah model around its main car-inventory task. Added validated browser/page tools for searching inventory without the credentialed search API, listing used cars, new cars, English city/country listings, English condition-filtered offers, and current make/model and make/model/year Arab"
+      },
+      "skill": {
+        "tools": 32,
+        "httpTools": 15,
+        "handoffs": 20,
+        "examples": 32,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "syarah",
+      "run": 2,
+      "jobId": "20261025T095243Z-777803bf",
+      "status": "completed",
+      "wallMs": 289188,
+      "tools": {
+        "total": 27,
+        "validated": 25,
+        "httpValidated": 13,
+        "browserValidated": 12,
+        "failed": [
+          "list_cars_by_category_or_make_en_browser",
+          "list_cars_by_make_model_year"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_cars",
+        "transport": "browser",
+        "requiredInputs": [
+          "query"
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
+      },
+      "apiGaps": {
+        "credentialed": 1,
+        "client-rendered": 1
+      },
+      "fieldQuality": {
+        "tools": 21,
+        "meanFields": 5.714285714285714,
+        "meanFilled": 0.9698412698412698,
+        "structured": 21
+      },
+      "agent": {
+        "turns": 7,
+        "toolCalls": 41,
+        "accepted": [
+          "list_cars_by_make_model_year",
+          "list_cars_by_city_en",
+          "check_working_time",
+          "list_installment_cars_by_make_en",
+          "list_car_prices_by_make_en",
+          "list_cars_by_year_and_make_en"
+        ],
+        "rejected": 3,
+        "inputTokens": 71399,
+        "outputTokens": 7087,
+        "cacheReadTokens": 143872,
+        "finished": true,
+        "stoppedBecause": "finished: Improved Syarah model around the main car-shopping task. Kept page-driven search/detail/listing tools because search-api and post/view-online API evidence was credentialed or unauthorized on replay. Added validated tools for Arabic make/model/year listings, English city listings, English installment"
+      },
+      "skill": {
+        "tools": 25,
+        "httpTools": 13,
+        "handoffs": 20,
+        "examples": 25,
+        "guidance": "model"
+      }
+    }
+  ]
+}
