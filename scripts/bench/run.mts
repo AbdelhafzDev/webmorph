@@ -2,14 +2,15 @@
  * Benchmark runner: discovers each site in bench/sites.json several times and scores every run from its artifacts.
  *
  *   node --import tsx scripts/bench/run.mts [--sites sar,haraj] [--runs 2] [--parallel 2] [--label baseline] [--config bench/sites.json]
+ *   node --import tsx scripts/bench/run.mts --rescore --label baseline --store <that label's raw store>   (score again without discovering)
  *
  * Raw artifacts go to a scratch store (--store, default .webmorph-bench, ignored by git); the committed outputs are
  * bench/results/<label>.json (every run's scorecard) and bench/results/<label>.md (the table).
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { discover, SkillDefinition, ToolDefinition, ValidationReport, WebsiteModel } from '../../src/index.js';
+import { discover, FileArtifactStore, SkillDefinition, ToolDefinition, ValidationReport, WebsiteModel } from '../../src/index.js';
 import { stderrLogger } from '../../src/core/job.js';
 import type { Budget } from '../../src/schemas/siteManifest.js';
 
@@ -45,9 +46,21 @@ export interface FieldQuality {
 export function fieldQualityOf(output: unknown): FieldQuality | undefined {
   const o = output as Record<string, unknown> | undefined;
   if (!o || typeof o !== 'object') return undefined;
-  const data = o['data'];
-  const rows = (Array.isArray(o['results']) ? o['results'] : Array.isArray(data) ? data : data && typeof data === 'object' ? Object.values(data as Record<string, unknown>).find((v) => Array.isArray(v)) : undefined) as unknown[] | undefined;
-  const objects = rows?.filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === 'object' && !Array.isArray(r)) ?? [];
+  // The result rows: `results` when present, else the largest array of objects within four levels (a GraphQL
+  // payload nests them under data.<operation>.items or similar).
+  let rows: unknown[] | undefined = Array.isArray(o['results']) ? o['results'] : undefined;
+  if (!rows) {
+    const walk = (v: unknown, depth: number) => {
+      if (!v || typeof v !== 'object' || depth > 4) return;
+      if (Array.isArray(v)) {
+        if (v.some((x) => x && typeof x === 'object' && !Array.isArray(x)) && (!rows || v.length > rows.length)) rows = v;
+        return;
+      }
+      for (const child of Object.values(v as Record<string, unknown>)) walk(child, depth + 1);
+    };
+    walk(o, 0);
+  }
+  const objects = (rows as unknown[] | undefined)?.filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === 'object' && !Array.isArray(r)) ?? [];
   if (!objects.length) return undefined;
   const names = Array.from(new Set(objects.flatMap((r) => Object.keys(r))));
   const cells = objects.length * names.length;
@@ -80,6 +93,7 @@ const { values } = parseArgs({
     store: { type: 'string', default: '.webmorph-bench' },
     config: { type: 'string', default: 'bench/sites.json' },
     verbose: { type: 'boolean', default: false },
+    rescore: { type: 'boolean', default: false },
   },
 });
 
@@ -98,7 +112,7 @@ async function runOnce(site: SiteSpec, run: number): Promise<Scorecard> {
   const started = Date.now();
   const outDir = join(store, site.id, `run-${run}`);
   await mkdir(outDir, { recursive: true });
-  const card: Scorecard = { site: site.id, run, jobId: '', status: 'failed', wallMs: 0, tools: { total: 0, validated: 0, httpValidated: 0, browserValidated: 0, failed: [] }, mainTask: { covered: false }, apiGaps: {} };
+  const card = emptyCard(site, run);
   try {
     const result = await discover({
       startUrl: site.startUrl,
@@ -111,7 +125,22 @@ async function runOnce(site: SiteSpec, run: number): Promise<Scorecard> {
     });
     card.jobId = result.jobId;
     card.status = result.job.status;
-    const { store: artifacts, siteId, jobId } = result;
+    await scoreInto(card, site, result.store, result.siteId, result.jobId);
+  } catch (err) {
+    card.error = err instanceof Error ? err.message : String(err);
+  }
+  card.wallMs = Date.now() - started;
+  process.stderr.write(`bench: ${site.id} run ${run}: ${card.status}, ${card.tools.validated}/${card.tools.total} validated, main task ${card.mainTask.covered ? `covered by ${card.mainTask.tool}` : 'not covered'}, ${Math.round(card.wallMs / 1000)} s\n`);
+  return card;
+}
+
+function emptyCard(site: SiteSpec, run: number): Scorecard {
+  return { site: site.id, run, jobId: '', status: 'failed', wallMs: 0, tools: { total: 0, validated: 0, httpValidated: 0, browserValidated: 0, failed: [] }, mainTask: { covered: false }, apiGaps: {} };
+}
+
+/** Score a finished job's artifacts into the card: tools, main task, field quality, agent record, skill. */
+async function scoreInto(card: Scorecard, site: SiteSpec, artifacts: FileArtifactStore, siteId: string, jobId: string): Promise<void> {
+  {
     const tools = (await artifacts.readArtifact(siteId, jobId, 'ToolDefinition', ToolDefinition)).data;
     const report = (await artifacts.readArtifact(siteId, jobId, 'ValidationReport', ValidationReport)).data;
     const model = (await artifacts.readArtifact(siteId, jobId, 'WebsiteModel', WebsiteModel)).data;
@@ -149,18 +178,37 @@ async function runOnce(site: SiteSpec, run: number): Promise<Scorecard> {
     } catch {
       // no skill artifact
     }
+  }
+}
+
+/** Score the runs already in the raw store (the latest job of each site/run folder) without discovering again. */
+async function rescoreOnce(site: SiteSpec, run: number): Promise<Scorecard> {
+  const card = emptyCard(site, run);
+  try {
+    const outDir = join(store, site.id, `run-${run}`);
+    const artifacts = new FileArtifactStore(outDir);
+    const siteIds = (await readdir(join(outDir, 'sites'))).filter((d) => !d.startsWith('.'));
+    const siteId = siteIds[0];
+    if (!siteId) throw new Error(`no site under ${outDir}`);
+    const jobId = (await artifacts.listJobs(siteId)).sort().at(-1);
+    if (!jobId) throw new Error(`no job under ${outDir}`);
+    const job = await artifacts.readJob(siteId, jobId);
+    card.jobId = jobId;
+    card.status = job.status;
+    const stages = job.stages.filter((st) => st.startedAt && st.finishedAt);
+    card.wallMs = stages.length ? Math.max(...stages.map((st) => new Date(st.finishedAt!).getTime())) - Math.min(...stages.map((st) => new Date(st.startedAt!).getTime())) : 0;
+    await scoreInto(card, site, artifacts, siteId, jobId);
   } catch (err) {
     card.error = err instanceof Error ? err.message : String(err);
   }
-  card.wallMs = Date.now() - started;
-  process.stderr.write(`bench: ${site.id} run ${run}: ${card.status}, ${card.tools.validated}/${card.tools.total} validated, main task ${card.mainTask.covered ? `covered by ${card.mainTask.tool}` : 'not covered'}, ${Math.round(card.wallMs / 1000)} s\n`);
   return card;
 }
 
 // Runs of one site go one after another (a site sees one crawler at a time); sites run in parallel up to --parallel.
+const once = values.rescore ? rescoreOnce : runOnce;
 const queue = sites.map((site) => async () => {
   const cards: Scorecard[] = [];
-  for (let run = 1; run <= runs; run += 1) cards.push(await runOnce(site, run));
+  for (let run = 1; run <= runs; run += 1) cards.push(await once(site, run));
   return cards;
 });
 const cards: Scorecard[] = [];

@@ -1,6 +1,6 @@
 {
   "label": "baseline-2026-10-22",
-  "date": "2026-10-22T18:35:45.098Z",
+  "date": "2026-10-25T09:48:23.937Z",
   "provider": "openai",
   "runs": 2,
   "cards": [
@@ -9,7 +9,7 @@
       "run": 1,
       "jobId": "20261022T182224Z-3f3f5e0d",
       "status": "completed",
-      "wallMs": 442840,
+      "wallMs": 442829,
       "tools": {
         "total": 18,
         "validated": 16,
@@ -26,10 +26,21 @@
         "transport": "http",
         "requiredInputs": [
           "query"
-        ]
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
       },
       "apiGaps": {
         "client-rendered": 1
+      },
+      "fieldQuality": {
+        "tools": 14,
+        "meanFields": 3.357142857142857,
+        "meanFilled": 0.9117965367965368,
+        "structured": 14
       },
       "agent": {
         "turns": 30,
@@ -65,7 +76,7 @@
       "run": 2,
       "jobId": "20261022T182947Z-a3a5cdcb",
       "status": "completed",
-      "wallMs": 357646,
+      "wallMs": 357639,
       "tools": {
         "total": 15,
         "validated": 13,
@@ -82,9 +93,20 @@
         "transport": "http",
         "requiredInputs": [
           "query"
-        ]
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
       },
       "apiGaps": {},
+      "fieldQuality": {
+        "tools": 12,
+        "meanFields": 2.75,
+        "meanFilled": 0.9484848484848486,
+        "structured": 12
+      },
       "agent": {
         "turns": 24,
         "toolCalls": 27,
@@ -118,7 +140,7 @@
       "run": 1,
       "jobId": "20261022T181412Z-237d790e",
       "status": "completed",
-      "wallMs": 173491,
+      "wallMs": 173483,
       "tools": {
         "total": 1,
         "validated": 1,
@@ -134,10 +156,21 @@
           "departure_station",
           "arrival_station",
           "departure_date"
-        ]
+        ],
+        "fields": {
+          "fields": 8,
+          "filled": 1,
+          "structured": true
+        }
       },
       "apiGaps": {
         "no-mechanics": 1
+      },
+      "fieldQuality": {
+        "tools": 1,
+        "meanFields": 8,
+        "meanFilled": 1,
+        "structured": 1
       },
       "agent": {
         "turns": 10,
@@ -165,7 +198,7 @@
       "run": 2,
       "jobId": "20261022T181706Z-9c5ea49c",
       "status": "completed",
-      "wallMs": 318413,
+      "wallMs": 318407,
       "tools": {
         "total": 2,
         "validated": 2,
@@ -181,11 +214,22 @@
           "departure_station",
           "arrival_station",
           "departure_date"
-        ]
+        ],
+        "fields": {
+          "fields": 1,
+          "filled": 1,
+          "structured": false
+        }
       },
       "apiGaps": {
         "no-mechanics": 1,
         "client-rendered": 1
+      },
+      "fieldQuality": {
+        "tools": 2,
+        "meanFields": 1.5,
+        "meanFilled": 1,
+        "structured": 1
       },
       "agent": {
         "turns": 27,
@@ -214,7 +258,7 @@
       "run": 1,
       "jobId": "20261022T181412Z-6b41b41e",
       "status": "completed",
-      "wallMs": 485470,
+      "wallMs": 485459,
       "tools": {
         "total": 35,
         "validated": 34,
@@ -226,14 +270,25 @@
       },
       "mainTask": {
         "covered": true,
-        "tool": "list_cars_by_category_or_make_ar",
-        "transport": "http",
+        "tool": "search_cars_by_text_ar",
+        "transport": "browser",
         "requiredInputs": [
-          "auto"
-        ]
+          "query"
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
       },
       "apiGaps": {
         "client-rendered": 1
+      },
+      "fieldQuality": {
+        "tools": 31,
+        "meanFields": 4.709677419354839,
+        "meanFilled": 0.9795698924731183,
+        "structured": 31
       },
       "agent": {
         "turns": 22,
@@ -268,7 +323,7 @@
       "run": 2,
       "jobId": "20261022T182218Z-d799aba2",
       "status": "completed",
-      "wallMs": 513821,
+      "wallMs": 513811,
       "tools": {
         "total": 32,
         "validated": 31,
@@ -280,15 +335,25 @@
       },
       "mainTask": {
         "covered": true,
-        "tool": "list_cars_by_year_and_make_en",
-        "transport": "http",
+        "tool": "search_cars",
+        "transport": "browser",
         "requiredInputs": [
-          "year",
-          "make"
-        ]
+          "query"
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
       },
       "apiGaps": {
         "client-rendered": 2
+      },
+      "fieldQuality": {
+        "tools": 28,
+        "meanFields": 5,
+        "meanFilled": 0.9773809523809524,
+        "structured": 28
       },
       "agent": {
         "turns": 29,

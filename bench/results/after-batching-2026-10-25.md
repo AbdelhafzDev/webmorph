@@ -2,14 +2,14 @@
 
 Provider: openai. 2 run(s) per site. Tokens are the harness's: uncached input + output, with prompt-cache reads apart.
 
-| Site | Run | Status | Tools validated (HTTP / browser) | Main task | Required inputs | Agent turns | Tokens (uncached in + out) | Cache reads | Wall |
-|---|---|---|---|---|---|---|---|---|---|
-| haraj | 1 | completed | 10/10 (5 / 5) | yes: search_classified_ads (http) | query | 5 | 42k | 92k | 191 s |
-| haraj | 2 | completed | 11/13 (6 / 5) | yes: search_classified_ads_by_city (http) | query, city | 11 | 113k | 233k | 248 s |
-| sar | 1 | completed | 5/5 (2 / 3) | yes: search_train_trips (browser) | departure_station, arrival_station, departure_date, trip_direction | 17 | 75k | 246k | 231 s |
-| sar | 2 | completed | 6/6 (2 / 4) | yes: list_train_trips (browser) | departure_station, arrival_station, departure_date | 19 | 109k | 295k | 247 s |
-| syarah | 1 | completed | 32/33 (15 / 17) | yes: search_car_inventory (browser) | query | 14 | 110k | 364k | 368 s |
-| syarah | 2 | completed | 31/36 (17 / 14) | yes: search_cars (browser) | query | 12 | 96k | 313k | 330 s |
+| Site | Run | Status | Tools validated (HTTP / browser) | Main task | Required inputs | Main task fields (filled) | Structured tools | Agent turns | Tokens (uncached in + out) | Cache reads | Wall |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| haraj | 1 | completed | 10/10 (5 / 5) | yes: search_classified_ads (http) | query | 34 (79%) | 8/8 | 5 | 42k | 92k | 191 s |
+| haraj | 2 | completed | 11/13 (6 / 5) | yes: search_classified_ads_by_city (http) | query, city | 2 (100%) | 10/10 | 11 | 113k | 233k | 248 s |
+| sar | 1 | completed | 5/5 (2 / 3) | yes: search_train_trips (browser) | departure_station, arrival_station, departure_date, trip_direction | 1 (100%) | 3/4 | 17 | 75k | 246k | 231 s |
+| sar | 2 | completed | 6/6 (2 / 4) | yes: list_train_trips (browser) | departure_station, arrival_station, departure_date | 8 (100%) | 2/3 | 19 | 109k | 295k | 247 s |
+| syarah | 1 | completed | 32/33 (15 / 17) | yes: search_car_inventory (browser) | query | 6 (83%) | 29/29 | 14 | 110k | 364k | 368 s |
+| syarah | 2 | completed | 31/36 (17 / 14) | yes: search_cars (browser) | query | 2 (100%) | 28/28 | 12 | 96k | 313k | 330 s |
 
 ## Per site
 

@@ -1,6 +1,6 @@
 {
   "label": "after-batching-2026-10-25",
-  "date": "2026-10-25T09:26:10.310Z",
+  "date": "2026-10-25T09:48:24.531Z",
   "provider": "openai",
   "runs": 2,
   "cards": [
@@ -9,7 +9,7 @@
       "run": 1,
       "jobId": "20261025T091851Z-fa973654",
       "status": "completed",
-      "wallMs": 190855,
+      "wallMs": 190845,
       "tools": {
         "total": 10,
         "validated": 10,
@@ -23,9 +23,20 @@
         "transport": "http",
         "requiredInputs": [
           "query"
-        ]
+        ],
+        "fields": {
+          "fields": 34,
+          "filled": 0.788515406162465,
+          "structured": true
+        }
       },
       "apiGaps": {},
+      "fieldQuality": {
+        "tools": 8,
+        "meanFields": 8.25,
+        "meanFilled": 0.8214810924369748,
+        "structured": 8
+      },
       "agent": {
         "turns": 5,
         "toolCalls": 16,
@@ -54,7 +65,7 @@
       "run": 2,
       "jobId": "20261025T092202Z-0d6bb940",
       "status": "completed",
-      "wallMs": 247915,
+      "wallMs": 247908,
       "tools": {
         "total": 13,
         "validated": 11,
@@ -72,9 +83,20 @@
         "requiredInputs": [
           "query",
           "city"
-        ]
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
       },
       "apiGaps": {},
+      "fieldQuality": {
+        "tools": 10,
+        "meanFields": 2.9,
+        "meanFilled": 0.9400000000000001,
+        "structured": 10
+      },
       "agent": {
         "turns": 11,
         "toolCalls": 32,
@@ -107,7 +129,7 @@
       "run": 1,
       "jobId": "20261025T091053Z-23e169ac",
       "status": "completed",
-      "wallMs": 230750,
+      "wallMs": 230745,
       "tools": {
         "total": 5,
         "validated": 5,
@@ -124,11 +146,22 @@
           "arrival_station",
           "departure_date",
           "trip_direction"
-        ]
+        ],
+        "fields": {
+          "fields": 1,
+          "filled": 1,
+          "structured": false
+        }
       },
       "apiGaps": {
         "no-mechanics": 1,
         "client-rendered": 1
+      },
+      "fieldQuality": {
+        "tools": 4,
+        "meanFields": 1.75,
+        "meanFilled": 1,
+        "structured": 3
       },
       "agent": {
         "turns": 17,
@@ -159,7 +192,7 @@
       "run": 2,
       "jobId": "20261025T091444Z-ecde7903",
       "status": "completed",
-      "wallMs": 247292,
+      "wallMs": 247286,
       "tools": {
         "total": 6,
         "validated": 6,
@@ -175,10 +208,21 @@
           "departure_station",
           "arrival_station",
           "departure_date"
-        ]
+        ],
+        "fields": {
+          "fields": 8,
+          "filled": 1,
+          "structured": true
+        }
       },
       "apiGaps": {
         "no-sample": 3
+      },
+      "fieldQuality": {
+        "tools": 3,
+        "meanFields": 3.6666666666666665,
+        "meanFilled": 1,
+        "structured": 2
       },
       "agent": {
         "turns": 19,
@@ -210,7 +254,7 @@
       "run": 1,
       "jobId": "20261025T091053Z-afd8161b",
       "status": "completed",
-      "wallMs": 367821,
+      "wallMs": 367808,
       "tools": {
         "total": 33,
         "validated": 32,
@@ -226,11 +270,22 @@
         "transport": "browser",
         "requiredInputs": [
           "query"
-        ]
+        ],
+        "fields": {
+          "fields": 6,
+          "filled": 0.8333333333333334,
+          "structured": true
+        }
       },
       "apiGaps": {
         "client-rendered": 2,
         "no-mechanics": 1
+      },
+      "fieldQuality": {
+        "tools": 29,
+        "meanFields": 4.862068965517241,
+        "meanFilled": 0.9689655172413792,
+        "structured": 29
       },
       "agent": {
         "turns": 14,
@@ -265,7 +320,7 @@
       "run": 2,
       "jobId": "20261025T091701Z-3ec6b282",
       "status": "completed",
-      "wallMs": 330245,
+      "wallMs": 330233,
       "tools": {
         "total": 36,
         "validated": 31,
@@ -285,11 +340,22 @@
         "transport": "browser",
         "requiredInputs": [
           "query"
-        ]
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
       },
       "apiGaps": {
         "credentialed": 1,
         "no-sample": 1
+      },
+      "fieldQuality": {
+        "tools": 28,
+        "meanFields": 5,
+        "meanFilled": 0.9773809523809522,
+        "structured": 28
       },
       "agent": {
         "turns": 12,
