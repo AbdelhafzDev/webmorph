@@ -1,0 +1,350 @@
+{
+  "label": "linking-2026-10-25",
+  "date": "2026-10-25T11:46:11.171Z",
+  "provider": "openai",
+  "runs": 2,
+  "cards": [
+    {
+      "site": "haraj",
+      "run": 1,
+      "jobId": "20261025T113851Z-ccf710ac",
+      "status": "completed",
+      "wallMs": 231365,
+      "tools": {
+        "total": 6,
+        "validated": 6,
+        "httpValidated": 5,
+        "browserValidated": 1,
+        "failed": []
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_posts",
+        "transport": "http",
+        "requiredInputs": [
+          "query"
+        ],
+        "fields": {
+          "fields": 34,
+          "filled": 0.7857142857142857,
+          "structured": true
+        }
+      },
+      "apiGaps": {},
+      "fieldQuality": {
+        "tools": 5,
+        "meanFields": 16.6,
+        "meanFilled": 0.7909243697478991,
+        "structured": 5
+      },
+      "agent": {
+        "turns": 11,
+        "toolCalls": 34,
+        "accepted": [
+          "get_related_tags",
+          "search_posts",
+          "list_posts_by_tag",
+          "get_post_by_id",
+          "list_trending_keywords"
+        ],
+        "rejected": 5,
+        "inputTokens": 91714,
+        "outputTokens": 9708,
+        "cacheReadTokens": 249344,
+        "finished": true,
+        "stoppedBecause": "finished: Renamed the core entity from generic item to Haraj post and added tag and keyword entities. Added validated GraphQL/API tools for searching posts, listing posts by tag, getting related tags, and listing trending keywords, plus a validated detail tool that retrieves a post by numeric ID only. Dropped"
+      },
+      "skill": {
+        "tools": 6,
+        "httpTools": 5,
+        "handoffs": 6,
+        "examples": 6,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "haraj",
+      "run": 2,
+      "jobId": "20261025T114242Z-3f374fed",
+      "status": "completed",
+      "wallMs": 208356,
+      "tools": {
+        "total": 9,
+        "validated": 8,
+        "httpValidated": 6,
+        "browserValidated": 2,
+        "failed": [
+          "list_recent_posts_browser"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_posts_api",
+        "transport": "http",
+        "requiredInputs": [
+          "query"
+        ],
+        "fields": {
+          "fields": 17,
+          "filled": 0.9299719887955182,
+          "structured": true
+        }
+      },
+      "apiGaps": {},
+      "fieldQuality": {
+        "tools": 6,
+        "meanFields": 6,
+        "meanFilled": 0.8883286647992531,
+        "structured": 6
+      },
+      "agent": {
+        "turns": 7,
+        "toolCalls": 25,
+        "accepted": [
+          "search_posts_api",
+          "list_posts_by_tag",
+          "list_recent_posts",
+          "list_promoted_posts_by_tag_api",
+          "list_related_tags_api"
+        ],
+        "rejected": 2,
+        "inputTokens": 84060,
+        "outputTokens": 6189,
+        "cacheReadTokens": 128512,
+        "finished": true,
+        "stoppedBecause": "finished: Renamed the main entity from generic item to Haraj post and updated the detail capability metadata. Added validated tools for GraphQL post search, tag/category listing, recent homepage posts, promoted posts by tag, and related tags. Dropped the older page-driven search capability as a duplicate of t"
+      },
+      "skill": {
+        "tools": 8,
+        "httpTools": 6,
+        "handoffs": 17,
+        "examples": 8,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "sar",
+      "run": 1,
+      "jobId": "20261025T112855Z-db6d0564",
+      "status": "completed",
+      "wallMs": 404779,
+      "tools": {
+        "total": 0,
+        "validated": 0,
+        "httpValidated": 0,
+        "browserValidated": 0,
+        "failed": []
+      },
+      "mainTask": {
+        "covered": false
+      },
+      "apiGaps": {},
+      "agent": {
+        "turns": 29,
+        "toolCalls": 36,
+        "accepted": [],
+        "rejected": 2,
+        "inputTokens": 102249,
+        "outputTokens": 7131,
+        "cacheReadTokens": 460288,
+        "finished": true,
+        "stoppedBecause": "finished: Dropped the bogus /ar/{id} 404-based capability and added a train_trip entity description. Investigated SAR’s main ticket search flow and Gatsby page-data, but no capability validated before the budget ended; site summary records the Select Trip URL mechanism and remaining extractor/API gaps."
+      },
+      "skill": {
+        "tools": 0,
+        "httpTools": 0,
+        "handoffs": 0,
+        "examples": 0,
+        "guidance": "template"
+      }
+    },
+    {
+      "site": "sar",
+      "run": 2,
+      "jobId": "20261025T113539Z-69defdfa",
+      "status": "completed",
+      "wallMs": 191465,
+      "tools": {
+        "total": 1,
+        "validated": 1,
+        "httpValidated": 0,
+        "browserValidated": 1,
+        "failed": []
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_train_trips",
+        "transport": "browser",
+        "requiredInputs": [
+          "departure_station",
+          "arrival_station",
+          "departure_date"
+        ],
+        "fields": {
+          "fields": 7,
+          "filled": 1,
+          "structured": true
+        }
+      },
+      "apiGaps": {
+        "no-mechanics": 1
+      },
+      "fieldQuality": {
+        "tools": 1,
+        "meanFields": 7,
+        "meanFilled": 1,
+        "structured": 1
+      },
+      "agent": {
+        "turns": 15,
+        "toolCalls": 26,
+        "accepted": [
+          "search_train_trips"
+        ],
+        "rejected": 1,
+        "inputTokens": 59911,
+        "outputTokens": 4332,
+        "cacheReadTokens": 195584,
+        "finished": true,
+        "stoppedBecause": "finished: Dropped the spurious /ar/404 detail capability, added the train_trip entity, and created a validated browser search_train_trips capability for SAR select-trip results using route/date/passenger query parameters. Recorded that the booking API traffic is credentialed POST traffic, so the browser workf"
+      },
+      "skill": {
+        "tools": 1,
+        "httpTools": 0,
+        "handoffs": 0,
+        "examples": 1,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "syarah",
+      "run": 1,
+      "jobId": "20261025T112855Z-ac3f3bd2",
+      "status": "completed",
+      "wallMs": 344732,
+      "tools": {
+        "total": 33,
+        "validated": 31,
+        "httpValidated": 15,
+        "browserValidated": 16,
+        "failed": [
+          "list_cars_by_make_model_year",
+          "list_cars_by_origin_country_en_browser"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_cars_by_keyword",
+        "transport": "browser",
+        "requiredInputs": [
+          "query"
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
+      },
+      "apiGaps": {
+        "credentialed": 1,
+        "client-rendered": 2
+      },
+      "fieldQuality": {
+        "tools": 28,
+        "meanFields": 5,
+        "meanFilled": 0.9773809523809522,
+        "structured": 28
+      },
+      "agent": {
+        "turns": 10,
+        "toolCalls": 49,
+        "accepted": [
+          "search_cars_by_keyword",
+          "list_cars_by_make_model_year",
+          "list_cars_by_city_en",
+          "list_cars_by_origin_country_en",
+          "list_cars_by_condition",
+          "list_financeable_cars_by_make_en",
+          "list_financeable_cars_by_make_model_en",
+          "list_cars_by_make_model"
+        ],
+        "rejected": 4,
+        "inputTokens": 99729,
+        "outputTokens": 9402,
+        "cacheReadTokens": 239616,
+        "finished": true,
+        "stoppedBecause": "finished: Refined Syarah around its main car-inventory task. Dropped the credentialed observed search and bad inferred financing capability, then added a validated keyword search, condition filter, Arabic make/model and make/model/year listings, English city and origin-country listings, and English financeabl"
+      },
+      "skill": {
+        "tools": 31,
+        "httpTools": 15,
+        "handoffs": 20,
+        "examples": 31,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "syarah",
+      "run": 2,
+      "jobId": "20261025T113439Z-9396f2be",
+      "status": "completed",
+      "wallMs": 305418,
+      "tools": {
+        "total": 25,
+        "validated": 23,
+        "httpValidated": 12,
+        "browserValidated": 11,
+        "failed": [
+          "list_cars_by_category_or_make_browser",
+          "list_cars_by_make_model_year_browser"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_cars_page",
+        "transport": "browser",
+        "requiredInputs": [
+          "query"
+        ],
+        "fields": {
+          "fields": 2,
+          "filled": 1,
+          "structured": true
+        }
+      },
+      "apiGaps": {
+        "credentialed": 1
+      },
+      "fieldQuality": {
+        "tools": 20,
+        "meanFields": 6.5,
+        "meanFilled": 0.9683333333333334,
+        "structured": 20
+      },
+      "agent": {
+        "turns": 10,
+        "toolCalls": 54,
+        "accepted": [
+          "search_cars_page",
+          "list_cars_by_make_and_model",
+          "list_cars_by_make_model_year",
+          "list_english_cars_by_city",
+          "list_installment_cars_by_make"
+        ],
+        "rejected": 7,
+        "inputTokens": 97527,
+        "outputTokens": 9043,
+        "cacheReadTokens": 237568,
+        "finished": true,
+        "stoppedBecause": "finished: Refined Syarah as a Saudi new/used car marketplace. Dropped the duplicate credentialed search capability and replaced it with a validated public search page tool. Renamed existing car listing/detail tools with clearer site vocabulary. Added validated browser/page capabilities for make+model listings"
+      },
+      "skill": {
+        "tools": 23,
+        "httpTools": 12,
+        "handoffs": 20,
+        "examples": 23,
+        "guidance": "model"
+      }
+    }
+  ]
+}

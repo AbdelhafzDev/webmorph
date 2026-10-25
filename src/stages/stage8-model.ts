@@ -153,7 +153,7 @@ async function runHarness(ctx: Ctx, client: ModelClient, baseline: WebsiteModelD
       const rows = output && Array.isArray(output['results']) ? (output['results'] as Array<Record<string, unknown>>).filter((r) => r && typeof r === 'object') : [];
       const declared = Object.keys(((tool.outputSchema as { properties?: { results?: { items?: { properties?: Record<string, unknown> } } } })?.properties?.results?.items?.properties) ?? {});
       const emptyFields = rows.length ? declared.filter((f) => rows.every((r) => r[f] === undefined || r[f] === null || String(r[f]).trim() === '')) : [];
-      out.push({ name: tool.name, transport: tool.transport ?? 'browser', verdict: v.verdict, ...(v.failureReasons[0] ? { reason: v.failureReasons[0] } : {}), ...(results !== undefined ? { resultCount: results } : {}), ...(emptyFields.length ? { emptyFields } : {}) });
+      out.push({ name: tool.name, transport: tool.transport ?? 'browser', verdict: v.verdict, ...(v.failureReasons[0] ? { reason: v.failureReasons[0] } : {}), ...(results !== undefined ? { resultCount: results } : {}), ...(emptyFields.length ? { emptyFields } : {}), inputs: v.inputs });
     }
     return { validated: out.some((t) => t.verdict === 'validated'), tools: out };
   };

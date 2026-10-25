@@ -43,7 +43,7 @@ export interface InspectionSummary {
 /** Verdict of replaying the tools generated from a proposed capability. */
 export interface ProposalVerdict {
   validated: boolean;
-  tools: Array<{ name: string; transport: string; verdict: ToolValidation['verdict']; reason?: string; resultCount?: number; /** Declared result fields that were empty in every result of the replay. */ emptyFields?: string[] }>;
+  tools: Array<{ name: string; transport: string; verdict: ToolValidation['verdict']; reason?: string; resultCount?: number; /** Declared result fields that were empty in every result of the replay. */ emptyFields?: string[]; /** The example inputs the replay used. */ inputs?: Record<string, unknown> }>;
 }
 
 export interface HarnessServices {
@@ -552,10 +552,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
         attached = linker.linkProposed(capability, sources.evidence?.data.probes ?? [], primary?.name ?? 'query', entity ? model.entities.find((e) => e.name === entity) : undefined);
       }
       const verdict = await services.validate(capability, model);
-      if (!verdict.validated) {
-        const reasons = verdict.tools.map((t) => `${t.name} (${t.transport}): ${t.verdict}${t.reason ? `, ${t.reason}` : ''}`).join('; ') || 'no tool could be generated from these mechanics';
-        reject(`validation failed: ${reasons}`);
-      }
+      if (!verdict.validated) reject(`validation failed: ${describeFailure(verdict)}`);
       if (fixedPage) {
         const most = Math.max(...verdict.tools.filter((t) => t.verdict === 'validated').map((t) => t.resultCount ?? 0));
         if (most < 3) reject(`a listing with no inputs over one fixed page must return three or more results on replay; it returned ${most}. Give the listing an input, or read the page with fetch_page instead`);
@@ -664,10 +661,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
       }
       // The program replays in a fresh context: the proposal is kept only when the tool validates with the example inputs.
       const verdict = await services.validate(capability, model);
-      if (!verdict.validated) {
-        const reasons = verdict.tools.map((t) => `${t.name} (${t.transport}): ${t.verdict}${t.reason ? `, ${t.reason}` : ''}`).join('; ') || 'no tool could be generated from this program';
-        reject(`validation failed: ${reasons}`);
-      }
+      if (!verdict.validated) reject(`validation failed: ${describeFailure(verdict)}`);
       if (capability.inputs.length === 0 && input.kind !== 'detail') {
         const most = Math.max(...verdict.tools.filter((t) => t.verdict === 'validated').map((t) => t.resultCount ?? 0));
         if (most < 3) reject(`a workflow with no inputs must return three or more results on replay; it returned ${most}. Bind an input to one of the recorded actions`);
@@ -827,6 +821,13 @@ function toolCallNote(tool: string, input: Record<string, unknown>): string {
   if (tool === 'browse_act') return `${String(input['action'])} ${String(input['elementId'])}${input['value'] ? ` = ${String(input['value']).slice(0, 40)}` : ''}${input['key'] ? ` ${String(input['key'])}` : ''}`;
   if (tool === 'browse_read') return `${String(input['mode'])}${input['selector'] ? ` ${String(input['selector'])}` : ''}`;
   return String(input['id'] ?? input['url'] ?? input['name'] ?? input['capabilityId'] ?? '').slice(0, 120);
+}
+
+/** Why a proposal's replay failed, with the example inputs it used: an empty answer may be the site's real answer for those values. */
+export function describeFailure(verdict: ProposalVerdict): string {
+  const parts = verdict.tools.map((t) => `${t.name} (${t.transport}): ${t.verdict}${t.reason ? `, ${t.reason}` : ''}${t.inputs && Object.keys(t.inputs).length ? ` [example inputs ${JSON.stringify(t.inputs)}]` : ''}`);
+  const empty = verdict.tools.some((t) => /output-nonempty|no results/.test(t.reason ?? ''));
+  return `${parts.join('; ') || 'no tool could be generated from these mechanics'}${empty ? '. An empty answer may be the site\'s real answer for those example values: use the values your session saw results for, or try other ones' : ''}`;
 }
 
 /** Note appended at half the turn budget when no proposal has been kept. */
