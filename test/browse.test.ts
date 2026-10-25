@@ -49,6 +49,10 @@ describe('the model drives the browser (D27)', () => {
       expect(s3.actionIndex).toBe(3);
       expect(s3.actionsLeft).toBe(17);
 
+      // One text field over a rich item is refused once browse_read has offered its parts.
+      const readFirst = await session.read({ mode: 'items', selector: null });
+      expect(() => session.buildWorkflowCapability({ kind: 'search', name: 'blob_trips', title: 'Blob', description: 'All text.', entity: 'trip', inputs: [{ name: 'category', type: 'string', required: true, description: 'c', example: 'Cheap', actionIndex: 2, mode: 'locator' }], extract: { kind: 'item-list', item: readFirst.items!.item, fields: [{ name: 'text', selector: null, attr: null }], hrefPattern: null, maxItems: 20 }, resultUrlPattern: null, expectedOutcome: 'x', confidence: 0.5, evidence: [] }, site.baseUrl)).toThrow(/name them as separate fields/);
+
       // Guardrails: consequential controls, out-of-scope opens and unknown ids are refused before anything happens.
       const buy = s3.elements.find((e) => e.name === 'Buy now')!;
       expect(buy.consequential).toBe(true);

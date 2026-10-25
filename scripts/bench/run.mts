@@ -33,6 +33,28 @@ interface SitesFile {
   sites: SiteSpec[];
 }
 
+/** How usable a tool's result rows are: how many named fields they carry and how many of those are filled. */
+export interface FieldQuality {
+  fields: number;
+  /** Share of (row, field) cells that hold a value, 0 to 1. */
+  filled: number;
+  /** Two or more named fields: an agent need not parse a blob. */
+  structured: boolean;
+}
+
+export function fieldQualityOf(output: unknown): FieldQuality | undefined {
+  const o = output as Record<string, unknown> | undefined;
+  if (!o || typeof o !== 'object') return undefined;
+  const data = o['data'];
+  const rows = (Array.isArray(o['results']) ? o['results'] : Array.isArray(data) ? data : data && typeof data === 'object' ? Object.values(data as Record<string, unknown>).find((v) => Array.isArray(v)) : undefined) as unknown[] | undefined;
+  const objects = rows?.filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === 'object' && !Array.isArray(r)) ?? [];
+  if (!objects.length) return undefined;
+  const names = Array.from(new Set(objects.flatMap((r) => Object.keys(r))));
+  const cells = objects.length * names.length;
+  const filledCells = objects.reduce((n, r) => n + names.filter((f) => r[f] !== undefined && r[f] !== null && String(r[f]).trim() !== '').length, 0);
+  return { fields: names.length, filled: cells ? filledCells / cells : 0, structured: names.length >= 2 };
+}
+
 export interface Scorecard {
   site: string;
   run: number;
@@ -40,7 +62,9 @@ export interface Scorecard {
   status: string;
   wallMs: number;
   tools: { total: number; validated: number; httpValidated: number; browserValidated: number; failed: string[] };
-  mainTask: { covered: boolean; tool?: string; transport?: string; requiredInputs?: string[] };
+  mainTask: { covered: boolean; tool?: string; transport?: string; requiredInputs?: string[]; fields?: FieldQuality };
+  /** Mean over validated tools whose replay returned result rows. */
+  fieldQuality?: { tools: number; meanFields: number; meanFilled: number; structured: number };
   apiGaps: Record<string, number>;
   agent?: { turns: number; toolCalls: number; accepted: string[]; rejected: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; finished: boolean; stoppedBecause?: string };
   skill?: { tools: number; httpTools: number; handoffs: number; guidance: string };
@@ -108,7 +132,13 @@ async function runOnce(site: SiteSpec, run: number): Promise<Scorecard> {
       const names = Object.keys((t.inputSchema as { properties?: Record<string, unknown> }).properties ?? {});
       return match.test(text) && site.mainTask.inputs.every((patterns) => names.some((n) => inputMatches(n, patterns.split('|').map((p) => p.trim()))));
     });
-    if (covering) card.mainTask = { covered: true, tool: covering.name, transport: covering.transport ?? 'browser', requiredInputs: ((covering.inputSchema as { required?: string[] }).required ?? []).slice() };
+    const outputOf = (toolId: string) => report.tools.find((t) => t.toolId === toolId)?.runs.find((r) => r.ok)?.output;
+    if (covering) {
+      const fields = fieldQualityOf(outputOf(covering.toolId));
+      card.mainTask = { covered: true, tool: covering.name, transport: covering.transport ?? 'browser', requiredInputs: ((covering.inputSchema as { required?: string[] }).required ?? []).slice(), ...(fields ? { fields } : {}) };
+    }
+    const qualities = validated.map((t) => fieldQualityOf(outputOf(t.toolId))).filter((q): q is FieldQuality => Boolean(q));
+    if (qualities.length) card.fieldQuality = { tools: qualities.length, meanFields: qualities.reduce((n, q) => n + q.fields, 0) / qualities.length, meanFilled: qualities.reduce((n, q) => n + q.filled, 0) / qualities.length, structured: qualities.filter((q) => q.structured).length };
     if (model.agent) {
       const a = model.agent;
       card.agent = { turns: a.turns, toolCalls: a.toolCalls.length, accepted: a.proposals.accepted, rejected: a.proposals.rejected.length, inputTokens: a.inputTokens, outputTokens: a.outputTokens, cacheReadTokens: a.cacheReadTokens ?? 0, finished: a.finished, ...(a.stoppedBecause ? { stoppedBecause: a.stoppedBecause } : {}) };
@@ -149,10 +179,12 @@ process.stderr.write(`bench: wrote bench/results/${label}.json and .md\n`);
 function renderSummary(label: string, sites: SiteSpec[], cards: Scorecard[]): string {
   const k = (n: number) => `${Math.round(n / 1000)}k`;
   const lines = [`# Benchmark ${label}`, '', `Provider: ${file.defaults.model.enabled === false ? 'none (deterministic only)' : file.defaults.model.provider ?? 'default'}. ${runs} run(s) per site. Tokens are the harness's: uncached input + output, with prompt-cache reads apart.`, ''];
-  lines.push('| Site | Run | Status | Tools validated (HTTP / browser) | Main task | Required inputs | Agent turns | Tokens (uncached in + out) | Cache reads | Wall |', '|---|---|---|---|---|---|---|---|---|---|');
+  lines.push('| Site | Run | Status | Tools validated (HTTP / browser) | Main task | Required inputs | Main task fields (filled) | Structured tools | Agent turns | Tokens (uncached in + out) | Cache reads | Wall |', '|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const c of cards) {
     const main = c.mainTask.covered ? `yes: ${c.mainTask.tool} (${c.mainTask.transport})` : 'no';
-    lines.push(`| ${c.site} | ${c.run} | ${c.status}${c.error ? ` (${c.error.slice(0, 60)})` : ''} | ${c.tools.validated}/${c.tools.total} (${c.tools.httpValidated} / ${c.tools.browserValidated}) | ${main} | ${c.mainTask.requiredInputs?.join(', ') ?? ''} | ${c.agent?.turns ?? ''} | ${c.agent ? k(c.agent.inputTokens + c.agent.outputTokens) : ''} | ${c.agent ? k(c.agent.cacheReadTokens) : ''} | ${Math.round(c.wallMs / 1000)} s |`);
+    const mf = c.mainTask.fields ? `${c.mainTask.fields.fields} (${Math.round(c.mainTask.fields.filled * 100)}%)` : '';
+    const st = c.fieldQuality ? `${c.fieldQuality.structured}/${c.fieldQuality.tools}` : '';
+    lines.push(`| ${c.site} | ${c.run} | ${c.status}${c.error ? ` (${c.error.slice(0, 60)})` : ''} | ${c.tools.validated}/${c.tools.total} (${c.tools.httpValidated} / ${c.tools.browserValidated}) | ${main} | ${c.mainTask.requiredInputs?.join(', ') ?? ''} | ${mf} | ${st} | ${c.agent?.turns ?? ''} | ${c.agent ? k(c.agent.inputTokens + c.agent.outputTokens) : ''} | ${c.agent ? k(c.agent.cacheReadTokens) : ''} | ${Math.round(c.wallMs / 1000)} s |`);
   }
   lines.push('', '## Per site', '');
   for (const site of sites) {

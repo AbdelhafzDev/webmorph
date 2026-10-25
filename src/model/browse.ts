@@ -136,6 +136,8 @@ export class BrowseSession {
   private elements = new Map<string, ElementRecord>();
   private forms: FormInventoryRecord[] = [];
   private networkCursor = 0;
+  /** What browse_read last found as repeated items: the selectors the model was offered for fields. */
+  private lastItems: RepeatedItems | null = null;
   /** The site's own XHR/fetch requests still in flight on the current page. */
   private inflight = new Set<unknown>();
   private opens = 0;
@@ -288,6 +290,7 @@ export class BrowseSession {
       return { text };
     }
     const items = await evaluateInPage(page, detectRepeatedItemsInPage, { within: input.selector ?? null });
+    if (items) this.lastItems = items;
     return { items };
   }
 
@@ -429,6 +432,10 @@ export class BrowseSession {
     if (p.extract.kind === 'item-list') {
       if (!p.extract.item) throw new BrowseRefusal('item-list extraction needs the item selector');
       if (!p.extract.fields.length) throw new BrowseRefusal('item-list extraction needs at least one field');
+      // One field over the whole item text is a blob an agent has to parse again; when browse_read offered the parts, name them.
+      const offered = this.lastItems && this.lastItems.item === p.extract.item ? this.lastItems.fields.map((f) => f.selector) : [];
+      const blobOnly = p.extract.fields.every((f) => !f.selector && !f.attr);
+      if (blobOnly && offered.length >= 3) throw new BrowseRefusal(`the item has ${offered.length} text parts (${offered.slice(0, 8).join(', ')}): name them as separate fields with those selectors instead of one text field over the whole item`);
       const fields = Object.fromEntries(p.extract.fields.map((f) => [f.name, { ...(f.selector ? { selector: f.selector } : {}), ...(f.attr ? { attr: f.attr } : {}) }]));
       // A client-rendered app shows placeholders before its results: wait for the first item, without failing when
       // the answer is legitimately empty.

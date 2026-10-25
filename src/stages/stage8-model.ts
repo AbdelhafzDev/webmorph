@@ -149,7 +149,11 @@ async function runHarness(ctx: Ctx, client: ModelClient, baseline: WebsiteModelD
       const output = v.runs[0]?.output as Record<string, unknown> | undefined;
       const data = output?.['data'];
       const results = output && Array.isArray(output['results']) ? (output['results'] as unknown[]).length : Array.isArray(data) ? data.length : data && typeof data === 'object' ? (Object.values(data as Record<string, unknown>).find((x) => Array.isArray(x)) as unknown[] | undefined)?.length : undefined;
-      out.push({ name: tool.name, transport: tool.transport ?? 'browser', verdict: v.verdict, ...(v.failureReasons[0] ? { reason: v.failureReasons[0] } : {}), ...(results !== undefined ? { resultCount: results } : {}) });
+      // Declared result fields empty in every result: a wrong selector the schema would otherwise hide.
+      const rows = output && Array.isArray(output['results']) ? (output['results'] as Array<Record<string, unknown>>).filter((r) => r && typeof r === 'object') : [];
+      const declared = Object.keys(((tool.outputSchema as { properties?: { results?: { items?: { properties?: Record<string, unknown> } } } })?.properties?.results?.items?.properties) ?? {});
+      const emptyFields = rows.length ? declared.filter((f) => rows.every((r) => r[f] === undefined || r[f] === null || String(r[f]).trim() === '')) : [];
+      out.push({ name: tool.name, transport: tool.transport ?? 'browser', verdict: v.verdict, ...(v.failureReasons[0] ? { reason: v.failureReasons[0] } : {}), ...(results !== undefined ? { resultCount: results } : {}), ...(emptyFields.length ? { emptyFields } : {}) });
     }
     return { validated: out.some((t) => t.verdict === 'validated'), tools: out };
   };

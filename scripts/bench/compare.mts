@@ -13,7 +13,7 @@ const a = await load(before);
 const b = await load(after);
 const sites = Array.from(new Set([...a.cards, ...b.cards].map((c) => c.site))).sort();
 
-interface Means { runs: number; covered: number; validated: number; http: number; turns: number; tokens: number; cached: number; wall: number; required: number }
+interface Means { runs: number; covered: number; validated: number; http: number; turns: number; tokens: number; cached: number; wall: number; required: number; mainFields: number; mainFilled: number; structured: number }
 const mean = (cards: Scorecard[]): Means => {
   const n = Math.max(1, cards.length);
   const sum = (f: (c: Scorecard) => number) => cards.reduce((s, c) => s + f(c), 0);
@@ -27,6 +27,9 @@ const mean = (cards: Scorecard[]): Means => {
     cached: sum((c) => c.agent?.cacheReadTokens ?? 0) / n,
     wall: sum((c) => c.wallMs / 1000) / n,
     required: sum((c) => c.mainTask.requiredInputs?.length ?? 0) / n,
+    mainFields: sum((c) => c.mainTask.fields?.fields ?? 0) / n,
+    mainFilled: sum((c) => c.mainTask.fields?.filled ?? 0) / n,
+    structured: sum((c) => (c.fieldQuality ? c.fieldQuality.structured / Math.max(1, c.fieldQuality.tools) : 0)) / n,
   };
 };
 const fmt = (v: number, unit: '' | 'k' | 's' = '') => (unit === 'k' ? `${Math.round(v / 1000)}k` : unit === 's' ? `${Math.round(v)} s` : `${Math.round(v * 10) / 10}`);
@@ -46,6 +49,9 @@ for (const site of sites) {
   const rows: Array<[string, string, string, string]> = [
     ['main task covered', `${x.covered}/${x.runs}`, `${y.covered}/${y.runs}`, delta(x.covered / Math.max(1, x.runs), y.covered / Math.max(1, y.runs))],
     ['required inputs of that tool', fmt(x.required), fmt(y.required), delta(x.required, y.required, '', true)],
+    ['main task fields', fmt(x.mainFields), fmt(y.mainFields), delta(x.mainFields, y.mainFields)],
+    ['main task fields filled', `${Math.round(x.mainFilled * 100)}%`, `${Math.round(y.mainFilled * 100)}%`, delta(x.mainFilled, y.mainFilled)],
+    ['structured tools share', `${Math.round(x.structured * 100)}%`, `${Math.round(y.structured * 100)}%`, delta(x.structured, y.structured)],
     ['validated tools (mean)', fmt(x.validated), fmt(y.validated), delta(x.validated, y.validated)],
     ['of which HTTP', fmt(x.http), fmt(y.http), delta(x.http, y.http)],
     ['harness turns', fmt(x.turns), fmt(y.turns), delta(x.turns, y.turns, '', true)],

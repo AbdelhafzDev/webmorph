@@ -26,6 +26,8 @@ baseline is what a later run is compared against.
 | Tools validated (HTTP / browser) | Tools whose replay passed every validation check, split by transport. HTTP tools are the deliverable (decision D25). |
 | Main task | Whether a validated tool covers what a visitor comes to the site for, as `mainTask` in `sites.json` defines it: a name, title or description matching `match`, and an input for every entry of `inputs` (each a set of name patterns). An HTTP tool is preferred over a browser one when both qualify. |
 | Required inputs | What a caller must pass to that tool. Fewer is better when the rest default to browsed values. |
+| Main task fields (filled) | Named fields in that tool's result rows on replay, and the share of cells that hold a value. One field is a text blob an agent must parse again. |
+| Structured tools | Validated tools whose rows carry two or more named fields, over the validated tools that returned rows. |
 | Agent turns, tokens, cache reads | The stage 8 harness's loop: turns taken, uncached input plus output tokens, prompt-cache reads apart (they cost about a tenth). |
 | Wall | Seconds for the whole job, crawl to skill. |
 | Per-site notes | Proposals kept and rejected, why the loop stopped, tools that failed validation, API gaps by reason. |

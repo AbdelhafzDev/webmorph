@@ -68,6 +68,8 @@ describe('the harness drives the browser (D27)', () => {
           };
           return [
             { tool: 'propose_entity', input: { name: 'trip', plural: 'trips', description: 'A trip the finder offers.', detailPageTypeId: null, listPageTypeIds: [], confidence: 0.8 } },
+            // A field whose selector matches nothing is empty on every replayed result: rejected with the field named.
+            { tool: 'propose_workflow', input: { ...proposal, name: 'find_trips_blank', extract: { ...proposal.extract, fields: [...proposal.extract.fields, { name: 'cost', selector: 'span.cost', attr: null }] } } },
             { tool: 'propose_workflow', input: { ...proposal, name: 'find_trips_fake', evidence: [{ artifactType: 'PageModel', refId: `${base}/nowhere` }] } },
             { tool: 'propose_workflow', input: { ...proposal, name: 'find_trips_wrong', inputs: [{ ...proposal.inputs[0]!, example: 'Expensive' }] } },
             { tool: 'propose_workflow', input: proposal },
@@ -103,9 +105,10 @@ describe('the harness drives the browser (D27)', () => {
     const agent = model.agent!;
     expect(agent).toMatchObject({ finished: true, turns: 7 });
     expect(agent.proposals.accepted).toEqual(['find_trips']);
-    expect(agent.proposals.rejected.map((r) => r.name)).toEqual(['find_trips_fake', 'find_trips_wrong']);
-    expect(agent.proposals.rejected[0]!.reason).toContain('does not exist');
-    expect(agent.proposals.rejected[1]!.reason).toContain('Expensive');
+    expect(agent.proposals.rejected.map((r) => r.name)).toEqual(['find_trips_blank', 'find_trips_fake', 'find_trips_wrong']);
+    expect(agent.proposals.rejected[0]!.reason).toContain('fields cost were empty in every result');
+    expect(agent.proposals.rejected[1]!.reason).toContain('does not exist');
+    expect(agent.proposals.rejected[2]!.reason).toContain('Expensive');
     expect(agent.toolCalls.filter((c) => c.tool.startsWith('browse_') && c.ok)).toHaveLength(5);
     const cap = model.capabilities.find((c) => c.name === 'find_trips')!;
     expect(cap).toMatchObject({ source: 'model', sideEffectClass: 'read', entity: 'trip' });

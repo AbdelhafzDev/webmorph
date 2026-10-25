@@ -15,7 +15,7 @@ import { hostnameOf, sameSite } from '../net/url.js';
 import type { ToolValidation } from '../schemas/validationReport.js';
 import { BrowseRefusal, browseToolDefinitions, type BrowseSession, type WorkflowProposal } from './browse.js';
 
-export const HARNESS_PROMPT_VERSION = '2026-10-25.1';
+export const HARNESS_PROMPT_VERSION = '2026-10-25.2';
 
 export interface HarnessBudget {
   maxTurns: number;
@@ -42,7 +42,7 @@ export interface InspectionSummary {
 /** Verdict of replaying the tools generated from a proposed capability. */
 export interface ProposalVerdict {
   validated: boolean;
-  tools: Array<{ name: string; transport: string; verdict: ToolValidation['verdict']; reason?: string; resultCount?: number }>;
+  tools: Array<{ name: string; transport: string; verdict: ToolValidation['verdict']; reason?: string; resultCount?: number; /** Declared result fields that were empty in every result of the replay. */ emptyFields?: string[] }>;
 }
 
 export interface HarnessServices {
@@ -80,7 +80,7 @@ How this works:
 - Prefer the site's own JSON or GraphQL endpoints over pages, and server-rendered pages over client-rendered ones; an agent is judged first by what it can call without a browser, and then by whether the site's main task is covered at all.
 - A form inside an iframe is not reachable from the outer page: when a browse summary lists frames, open the frame's URL with browse_open and work there.
 - Start from what a visitor comes to do (the site's main search, lookup or listing: trips, products, listings) and make sure it becomes a tool before polishing content pages. When the main task has no public JSON API (opaque or encoded payloads, a session the app negotiates itself), a validated browser tool is the right outcome, not a gap: drive the form with the browsing tools, or open a results URL the site itself links to with the inputs in its query, and propose_workflow.
-- A workflow's extractor must read the entity's own result items (trip cards, product rows, listings), never navigation, filters or a date strip. Every query value that depends on what the caller asks (a return date, a line or direction code that changes with the route, a passenger count) must be an input, described with the values the site uses; only true constants (language, service type) stay fixed. Mark an input required only when a caller must choose it (what to search, from where, to where, when); counts, codes and settings default to the value your session used, so keep them optional and say in the description what the default means. Pick the element that holds a whole result (for a trip: times, route, train and price), not a part of it: browse_read in text mode on your item selector shows what one item contains. If the session never showed one result item, do not propose the workflow: record in set_site_summary which mechanism reaches the results and that no example produced any.
+- A workflow's extractor must read the entity's own result items (trip cards, product rows, listings), never navigation, filters or a date strip. Every query value that depends on what the caller asks (a return date, a line or direction code that changes with the route, a passenger count) must be an input, described with the values the site uses; only true constants (language, service type) stay fixed. Mark an input required only when a caller must choose it (what to search, from where, to where, when); counts, codes and settings default to the value your session used, so keep them optional and say in the description what the default means. Pick the element that holds a whole result (for a trip: times, route, train and price), not a part of it: browse_read in text mode on your item selector shows what one item contains. Name the parts as separate fields with their selectors (departure_time, arrival_station, train, price); one text field over the whole item is refused when the parts are known, and a field that stays empty on replay is refused too. If the session never showed one result item, do not propose the workflow: record in set_site_summary which mechanism reaches the results and that no example produced any.
 - Put every call that does not need another call's result into the same turn: all the evidence you want to read, all the revisions you have decided, every proposal whose evidence you already hold. The harness runs them at once (proposals are each generated and replayed in parallel) and answers in one round. One proposal per turn is the slowest and most expensive way to work.
 - A client-rendered results page sometimes fails to render on one load (placeholders, or neither results nor a no-results message): open it once more before concluding anything.
 - A replay that returns no results may be the site's real answer for that example (no trip on that date, nothing in stock): try another example value the site offers before giving up on a mechanism.
@@ -662,6 +662,9 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
         const most = Math.max(...verdict.tools.filter((t) => t.verdict === 'validated').map((t) => t.resultCount ?? 0));
         if (most < 3) reject(`a workflow with no inputs must return three or more results on replay; it returned ${most}. Bind an input to one of the recorded actions`);
       }
+      // A field that is empty in every result is a wrong selector: the tool would ship a schema it cannot fill.
+      const empty = verdict.tools.find((t) => t.verdict === 'validated' && t.emptyFields?.length)?.emptyFields;
+      if (empty?.length) reject(`fields ${empty.join(', ')} were empty in every result on replay: fix their selectors (browse_read in text mode on the item shows what each part contains) or drop them`);
       if (capability.entity) touchedEntities.add(capability.entity);
       model.capabilities.push(capability);
       turnVerdicts.push({ index, accepted: capability.name });
