@@ -1,0 +1,322 @@
+{
+  "label": "after-batching-2026-10-25",
+  "date": "2026-10-25T09:26:10.310Z",
+  "provider": "openai",
+  "runs": 2,
+  "cards": [
+    {
+      "site": "haraj",
+      "run": 1,
+      "jobId": "20261025T091851Z-fa973654",
+      "status": "completed",
+      "wallMs": 190855,
+      "tools": {
+        "total": 10,
+        "validated": 10,
+        "httpValidated": 5,
+        "browserValidated": 5,
+        "failed": []
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_classified_ads",
+        "transport": "http",
+        "requiredInputs": [
+          "query"
+        ]
+      },
+      "apiGaps": {},
+      "agent": {
+        "turns": 5,
+        "toolCalls": 16,
+        "accepted": [
+          "get_classified_ad_en",
+          "list_latest_classified_ads",
+          "list_classified_ads_by_tag"
+        ],
+        "rejected": 2,
+        "inputTokens": 37936,
+        "outputTokens": 3597,
+        "cacheReadTokens": 91648,
+        "finished": true,
+        "stoppedBecause": "finished: Renamed the marketplace entity to classified_ad, improved the existing search/detail capability names and descriptions, and added validated browser tools for latest ads, ads by tag/category, and English-UI ad detail pages. Site summary updated with main-task hypotheses and API scope caveat."
+      },
+      "skill": {
+        "tools": 10,
+        "httpTools": 5,
+        "handoffs": 20,
+        "examples": 10,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "haraj",
+      "run": 2,
+      "jobId": "20261025T092202Z-0d6bb940",
+      "status": "completed",
+      "wallMs": 247915,
+      "tools": {
+        "total": 13,
+        "validated": 11,
+        "httpValidated": 6,
+        "browserValidated": 5,
+        "failed": [
+          "list_classified_ads_by_city",
+          "list_classified_ads_by_city_browser"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_classified_ads_by_city",
+        "transport": "http",
+        "requiredInputs": [
+          "query",
+          "city"
+        ]
+      },
+      "apiGaps": {},
+      "agent": {
+        "turns": 11,
+        "toolCalls": 32,
+        "accepted": [
+          "list_recent_classified_ads",
+          "list_classified_ads_by_tag",
+          "list_classified_ads_by_city",
+          "search_classified_ads_by_city",
+          "get_classified_ad_en",
+          "list_trending_search_keywords",
+          "search_haraj_classified_ads"
+        ],
+        "rejected": 4,
+        "inputTokens": 105772,
+        "outputTokens": 7030,
+        "cacheReadTokens": 232960,
+        "finished": true,
+        "stoppedBecause": "finished: Modeled Haraj as a classified-ads marketplace. Renamed the entity to classified_ad, dropped duplicate/mechanical observed search/detail capabilities, and added validated tools for recent ads, keyword search, tag/category listing, city listing, city-constrained search, English ad detail pages, and a "
+      },
+      "skill": {
+        "tools": 11,
+        "httpTools": 6,
+        "handoffs": 20,
+        "examples": 11,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "sar",
+      "run": 1,
+      "jobId": "20261025T091053Z-23e169ac",
+      "status": "completed",
+      "wallMs": 230750,
+      "tools": {
+        "total": 5,
+        "validated": 5,
+        "httpValidated": 2,
+        "browserValidated": 3,
+        "failed": []
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_train_trips",
+        "transport": "browser",
+        "requiredInputs": [
+          "departure_station",
+          "arrival_station",
+          "departure_date",
+          "trip_direction"
+        ]
+      },
+      "apiGaps": {
+        "no-mechanics": 1,
+        "client-rendered": 1
+      },
+      "agent": {
+        "turns": 17,
+        "toolCalls": 31,
+        "accepted": [
+          "search_train_trips",
+          "get_information_page_data",
+          "list_passenger_service_pages",
+          "list_popular_booking_routes"
+        ],
+        "rejected": 1,
+        "inputTokens": 69522,
+        "outputTokens": 5345,
+        "cacheReadTokens": 245760,
+        "finished": false,
+        "stoppedBecause": "the model ended its turn without calling finish"
+      },
+      "skill": {
+        "tools": 5,
+        "httpTools": 2,
+        "handoffs": 5,
+        "examples": 5,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "sar",
+      "run": 2,
+      "jobId": "20261025T091444Z-ecde7903",
+      "status": "completed",
+      "wallMs": 247292,
+      "tools": {
+        "total": 6,
+        "validated": 6,
+        "httpValidated": 2,
+        "browserValidated": 4,
+        "failed": []
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "list_train_trips",
+        "transport": "browser",
+        "requiredInputs": [
+          "departure_station",
+          "arrival_station",
+          "departure_date"
+        ]
+      },
+      "apiGaps": {
+        "no-sample": 3
+      },
+      "agent": {
+        "turns": 19,
+        "toolCalls": 35,
+        "accepted": [
+          "list_train_trips",
+          "get_content_page",
+          "get_content_page_data",
+          "list_northern_train_stations",
+          "list_featured_route_offers"
+        ],
+        "rejected": 1,
+        "inputTokens": 103125,
+        "outputTokens": 5923,
+        "cacheReadTokens": 294912,
+        "finished": false,
+        "stoppedBecause": "the model ended its turn without calling finish"
+      },
+      "skill": {
+        "tools": 6,
+        "httpTools": 2,
+        "handoffs": 4,
+        "examples": 6,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "syarah",
+      "run": 1,
+      "jobId": "20261025T091053Z-afd8161b",
+      "status": "completed",
+      "wallMs": 367821,
+      "tools": {
+        "total": 33,
+        "validated": 32,
+        "httpValidated": 15,
+        "browserValidated": 17,
+        "failed": [
+          "list_cars_by_make_en_browser"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_car_inventory",
+        "transport": "browser",
+        "requiredInputs": [
+          "query"
+        ]
+      },
+      "apiGaps": {
+        "client-rendered": 2,
+        "no-mechanics": 1
+      },
+      "agent": {
+        "turns": 14,
+        "toolCalls": 50,
+        "accepted": [
+          "list_used_cars",
+          "list_new_cars",
+          "list_cars_by_make_model",
+          "list_cars_by_make_model_year",
+          "list_financed_cars_by_make",
+          "list_financed_cars_by_make_model",
+          "list_cars_by_origin_country",
+          "search_car_inventory"
+        ],
+        "rejected": 1,
+        "inputTokens": 101395,
+        "outputTokens": 8771,
+        "cacheReadTokens": 363520,
+        "finished": true,
+        "stoppedBecause": "finished: Modeled Syarah as a Saudi car marketplace. Updated car/oil entity descriptions, added validated browser/page tools for used cars, new cars, make+model, make+model+year, financing by make/model, origin country, and a validated browser workflow search_car_inventory that extracts full result cards from"
+      },
+      "skill": {
+        "tools": 32,
+        "httpTools": 15,
+        "handoffs": 20,
+        "examples": 32,
+        "guidance": "model"
+      }
+    },
+    {
+      "site": "syarah",
+      "run": 2,
+      "jobId": "20261025T091701Z-3ec6b282",
+      "status": "completed",
+      "wallMs": 330245,
+      "tools": {
+        "total": 36,
+        "validated": 31,
+        "httpValidated": 17,
+        "browserValidated": 14,
+        "failed": [
+          "list_cars_by_make_or_category_browser",
+          "list_cars_by_make_model_year",
+          "list_used_cars_browser",
+          "list_new_cars_en_browser",
+          "list_used_cars_en_browser"
+        ]
+      },
+      "mainTask": {
+        "covered": true,
+        "tool": "search_cars",
+        "transport": "browser",
+        "requiredInputs": [
+          "query"
+        ]
+      },
+      "apiGaps": {
+        "credentialed": 1,
+        "no-sample": 1
+      },
+      "agent": {
+        "turns": 12,
+        "toolCalls": 50,
+        "accepted": [
+          "list_used_cars",
+          "list_new_cars",
+          "list_cars_by_city_en",
+          "list_cars_by_country_en",
+          "list_cars_by_make_model",
+          "list_used_cars_en",
+          "list_new_cars_en"
+        ],
+        "rejected": 1,
+        "inputTokens": 88094,
+        "outputTokens": 7614,
+        "cacheReadTokens": 313344,
+        "finished": true,
+        "stoppedBecause": "finished: Updated the Syarah model around the main car-marketplace task. Renamed/described car and motor-oil entities, clarified existing car search/list/detail capabilities, dropped a flawed financing-list capability, and validated new browser/page listing tools for used cars, new cars, make+model, English u"
+      },
+      "skill": {
+        "tools": 31,
+        "httpTools": 17,
+        "handoffs": 20,
+        "examples": 31,
+        "guidance": "model"
+      }
+    }
+  ]
+}
