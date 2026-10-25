@@ -14,6 +14,8 @@ Options: `--sites sar,haraj` (default: every site in `sites.json`), `--runs 2`, 
 side; runs of one site go one after another, so a site sees one crawler at a time), `--store` (raw artifacts, default
 `.webmorph-bench/`, ignored by git), `--config` (another site list), `--verbose`. Provider keys come from `.env`.
 
+Compare two labels with `pnpm bench:compare <before> <after>`: a table of per-site means and deltas.
+
 The outputs are `results/<label>.json` (one scorecard per run) and `results/<label>.md` (the table). Commit both: the
 baseline is what a later run is compared against.
 
