@@ -1,4 +1,5 @@
 import type { StageDefinition, Logger } from '../core/job.js';
+import { runPool } from '../core/pool.js';
 import { BrowserRuntime } from '../browser/runtime.js';
 import { executeTool, toolNeedsBrowser, type ExecuteOptions } from '../tools/interpreter.js';
 import { validateAgainstSchema } from '../tools/jsonschema.js';
@@ -139,11 +140,19 @@ export const stage10Validate: StageDefinition<DiscoveryInput> = {
       }) : null;
       await runtime?.launch();
       try {
-        for (const tool of definition.data.tools) {
-          if (ctx.signal.aborted) break;
+        // Tools validate side by side: browser tools bounded by the browser concurrency budget, HTTP tools a little wider.
+        const validateOne = async (tool: ToolSpec) => {
           const v = await validateTool(runtime, tool, { scope, pageLoadTimeoutMs: budget.pageLoadTimeoutMs, settleTimeoutMs: budget.settleTimeoutMs, runs: budget.validationRuns, logger: ctx.logger, now: ctx.now, credentials });
-          results.push(v);
           ctx.logger.info(`validate ${tool.name}: ${v.verdict}${v.failureReasons.length ? ` (${v.failureReasons[0]})` : ''}`);
+          return v;
+        };
+        const browserTools = definition.data.tools.filter((t) => toolNeedsBrowser(t));
+        const httpTools = definition.data.tools.filter((t) => !toolNeedsBrowser(t));
+        const [browserResults, httpResults] = await Promise.all([runPool(browserTools, budget.browserConcurrency, validateOne, ctx.signal), runPool(httpTools, Math.max(budget.browserConcurrency, 4), validateOne, ctx.signal)]);
+        const byId = new Map([...browserResults, ...httpResults].filter((v): v is ToolValidation => Boolean(v)).map((v) => [v.toolId, v]));
+        for (const tool of definition.data.tools) {
+          const v = byId.get(tool.toolId);
+          if (v) results.push(v);
         }
       } finally {
         await runtime?.close();

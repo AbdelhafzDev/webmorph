@@ -113,13 +113,16 @@ async function runHarness(ctx: Ctx, client: ModelClient, baseline: WebsiteModelD
   const browserOpts = ctx.input.browser ?? {};
   const credentials = (await ctx.store.readSiteConfig(ctx.siteId)).apiCredentials;
   const blobs: BlobWriter = (subdir, contentType, data, ext) => ctx.store.writeBlob(ctx.siteId, ctx.jobId, subdir, contentType, data, ext);
+  // Concurrent tool calls of one turn share one launch: the promise is memoized, not the instance.
   let runtime: BrowserRuntime | undefined;
-  const getRuntime = async (): Promise<BrowserRuntime> => {
-    if (!runtime) {
+  let launching: Promise<BrowserRuntime> | undefined;
+  const getRuntime = (): Promise<BrowserRuntime> => {
+    launching ??= (async () => {
       runtime = new BrowserRuntime({ scope, allowPrivate: manifest.scope.allowPrivateNetwork, userAgent: manifest.scope.userAgent, headed: browserOpts.headed, blockHeavyResources: browserOpts.blockHeavyResources, executablePath: browserOpts.executablePath, channel: browserOpts.channel, resolver: ctx.input.resolver });
       await runtime.launch();
-    }
-    return runtime;
+      return runtime;
+    })();
+    return launching;
   };
 
   const inspect = async (url: string): Promise<InspectionSummary> => {
@@ -153,9 +156,13 @@ async function runHarness(ctx: Ctx, client: ModelClient, baseline: WebsiteModelD
 
   // The browsing session (D27) shares the runtime and is created when the model first opens a page; its opens count as inspections.
   let session: BrowseSession | undefined;
-  const browse = async (): Promise<BrowseSession> => {
-    session ??= new BrowseSession(await getRuntime(), { scope, pageLoadTimeoutMs: budget.pageLoadTimeoutMs, settleTimeoutMs: budget.settleTimeoutMs, maxElementsPerPage: budget.maxElementsPerPage, maxLinksPerPage: budget.maxLinksPerPage, maxActions: budget.maxAgentActions, maxOpens: Math.max(1, budget.maxAgentInspections) });
-    return session;
+  let opening: Promise<BrowseSession> | undefined;
+  const browse = (): Promise<BrowseSession> => {
+    opening ??= getRuntime().then((rt) => {
+      session = new BrowseSession(rt, { scope, pageLoadTimeoutMs: budget.pageLoadTimeoutMs, settleTimeoutMs: budget.settleTimeoutMs, maxElementsPerPage: budget.maxElementsPerPage, maxLinksPerPage: budget.maxLinksPerPage, maxActions: budget.maxAgentActions, maxOpens: Math.max(1, budget.maxAgentInspections) });
+      return session;
+    });
+    return opening;
   };
   const withBrowser = budget.maxAgentInspections > 0;
   const services: HarnessServices = { scope, http, logger: ctx.logger, validate, today: ctx.now().toISOString().slice(0, 10), ...(withBrowser ? { inspect } : {}), ...(withBrowser && budget.maxAgentActions > 0 ? { browse } : {}) };

@@ -15,7 +15,7 @@ import { hostnameOf, sameSite } from '../net/url.js';
 import type { ToolValidation } from '../schemas/validationReport.js';
 import { BrowseRefusal, browseToolDefinitions, type BrowseSession, type WorkflowProposal } from './browse.js';
 
-export const HARNESS_PROMPT_VERSION = '2026-10-22.9';
+export const HARNESS_PROMPT_VERSION = '2026-10-25.1';
 
 export interface HarnessBudget {
   maxTurns: number;
@@ -81,7 +81,7 @@ How this works:
 - A form inside an iframe is not reachable from the outer page: when a browse summary lists frames, open the frame's URL with browse_open and work there.
 - Start from what a visitor comes to do (the site's main search, lookup or listing: trips, products, listings) and make sure it becomes a tool before polishing content pages. When the main task has no public JSON API (opaque or encoded payloads, a session the app negotiates itself), a validated browser tool is the right outcome, not a gap: drive the form with the browsing tools, or open a results URL the site itself links to with the inputs in its query, and propose_workflow.
 - A workflow's extractor must read the entity's own result items (trip cards, product rows, listings), never navigation, filters or a date strip. Every query value that depends on what the caller asks (a return date, a line or direction code that changes with the route, a passenger count) must be an input, described with the values the site uses; only true constants (language, service type) stay fixed. Mark an input required only when a caller must choose it (what to search, from where, to where, when); counts, codes and settings default to the value your session used, so keep them optional and say in the description what the default means. Pick the element that holds a whole result (for a trip: times, route, train and price), not a part of it: browse_read in text mode on your item selector shows what one item contains. If the session never showed one result item, do not propose the workflow: record in set_site_summary which mechanism reaches the results and that no example produced any.
-- Several tool calls may go in one turn when they do not depend on each other's results (reads of different records, a fill and a click you planned together); it saves turns.
+- Put every call that does not need another call's result into the same turn: all the evidence you want to read, all the revisions you have decided, every proposal whose evidence you already hold. The harness runs them at once (proposals are each generated and replayed in parallel) and answers in one round. One proposal per turn is the slowest and most expensive way to work.
 - A client-rendered results page sometimes fails to render on one load (placeholders, or neither results nor a no-results message): open it once more before concluding anything.
 - A replay that returns no results may be the site's real answer for that example (no trip on that date, nothing in stock): try another example value the site offers before giving up on a mechanism.
 - When the browsing tools are offered (browse_open, browse_act, browse_read, propose_workflow), use them for what static evidence cannot show: a client-rendered app, a search behind clicks, a custom dropdown. Every page the session opens and every XHR/fetch it causes is returned to you, including the app's own POST requests (allowed when the page makes them; you still cannot propose a write). When the session reached results, call browse_read to find the result items, then propose_workflow to turn the recorded actions into a tool: the harness replays it in a fresh browser with your input bindings before it is kept.
@@ -306,6 +306,8 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
   const record: AgentRecord = { applied: true, model: client.id, turns: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, toolCalls: [], proposals: { accepted: [], rejected: [] }, revisions: [], finished: false };
   const known = evidenceIndex(sources);
   const used = { fetches: 0, inspections: 0, actions: 0, proposals: 0 };
+  /** Names of proposals being validated right now: two proposals of one turn may not share a name. */
+  const pendingNames = new Set<string>();
   /** Entities the model added or renamed: kept even when no capability references them. */
   const touchedEntities = new Set<string>();
   const originHost = hostnameOf(services.scope.data.origin);
@@ -437,9 +439,11 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
         throw new HarnessError(`rejected: ${reason}`);
       };
       if (!NAME.test(input.name)) reject('name must be snake_case (a-z, 0-9, _)');
-      if (model.capabilities.some((c) => c.name === input.name)) reject(`a capability named ${input.name} already exists; revise it or choose another name`);
+      if (model.capabilities.some((c) => c.name === input.name) || pendingNames.has(input.name)) reject(`a capability named ${input.name} already exists; revise it or choose another name`);
       if (!acceptableText(input.title) || !acceptableText(input.description)) reject('title or description reads like an instruction');
       if (!input.evidence.length) reject('cite at least one evidence record');
+      pendingNames.add(input.name);
+      try {
       for (const ref of input.evidence) if (!known.get(ref.artifactType)?.has(ref.refId)) reject(`evidence ${ref.artifactType}/${ref.refId} does not exist`);
       const m = input.mechanics;
       const hostOk = (url: string, allowSameSite: boolean) => {
@@ -545,6 +549,9 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
       model.capabilities.push(capability);
       record.proposals.accepted.push(capability.name);
       return { accepted: true, capabilityId: capability.capabilityId, tools: verdict.tools };
+      } finally {
+        pendingNames.delete(input.name);
+      }
     },
 
     async revise_capability(input) {
@@ -689,24 +696,35 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
         record.stoppedBecause = response.stopReason === 'end_turn' ? 'the model ended its turn without calling finish' : `stop reason ${response.stopReason}`;
         break;
       }
+      // The calls of one turn run concurrently (reads, revisions, proposals each validated by replay), except those that
+      // drive the one browsing session, which keep their order among themselves. Results are returned in call order.
+      let browseChain: Promise<unknown> = Promise.resolve();
+      const outcomes = await Promise.all(
+        toolUses.map((call) => {
+          const run = async () => {
+            const handler = handlers[call.name];
+            const input = (call.input ?? {}) as Record<string, unknown>;
+            try {
+              if (!handler) throw new HarnessError(`unknown tool ${call.name}`);
+              return { ok: true, text: json(await handler(input)), input };
+            } catch (err) {
+              return { ok: false, text: err instanceof Error ? err.message : String(err), input };
+            }
+          };
+          if (!call.name.startsWith('browse_') && call.name !== 'propose_workflow') return run();
+          const next = browseChain.then(run, run);
+          browseChain = next;
+          return next;
+        }),
+      );
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
-      for (const call of toolUses) {
-        const handler = handlers[call.name];
-        const input = (call.input ?? {}) as Record<string, unknown>;
-        let ok = true;
-        let text: string;
-        try {
-          if (!handler) throw new HarnessError(`unknown tool ${call.name}`);
-          text = json(await handler(input));
-        } catch (err) {
-          ok = false;
-          text = err instanceof Error ? err.message : String(err);
-        }
+      toolUses.forEach((call, i) => {
+        const { ok, text, input } = outcomes[i]!;
         const note = call.name === 'propose_capability' || call.name === 'propose_workflow' ? `${String(input['name'])}: ${ok ? 'accepted' : text.slice(0, 160)}` : ok ? toolCallNote(call.name, input) : text.slice(0, 160);
         record.toolCalls.push({ turn: record.turns, tool: call.name, ok, note });
         services.logger.debug(`harness turn ${record.turns}: ${call.name} ${ok ? 'ok' : 'error'} ${note}`);
         results.push({ type: 'tool_result', tool_use_id: call.id, content: text, ...(ok ? {} : { is_error: true }) });
-      }
+      });
       const remaining = budget.maxTurns - record.turns;
       const content: Anthropic.Beta.BetaContentBlockParam[] = [...results];
       if (!nudged && record.turns >= Math.ceil(budget.maxTurns / 2) && remaining > 2 && !record.finished && record.proposals.accepted.length === 0) {
