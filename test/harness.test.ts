@@ -224,6 +224,17 @@ describe('stage 8 model harness (D26)', () => {
     expect(model.capabilities.some((c) => c.name === 'get_post' || c.name === 'list_cars' || c.name === 'get_catalog_snapshot')).toBe(false);
   }, 240_000);
 
+  it('asks once for finish when the model ends a turn with text only, and records the request', async () => {
+    const client = new FakeChatClient((turn) => (turn === 0 ? 'Everything looks complete.' : [{ tool: 'finish', input: { summary: 'Done after the reminder.' } }]));
+    const result = await discover({ startUrl: `${site.baseUrl}/`, outDir, allowPrivate: true, model: { client }, budget: { ...budget, maxAgentTurns: 3, maxPagesToInspect: 1, maxProbesTotal: 0 }, sleep: async () => {} });
+    const model = (await result.store.readArtifact(result.siteId, result.jobId, 'WebsiteModel', WebsiteModel)).data;
+    expect(model.agent).toMatchObject({ turns: 2, finished: true });
+    expect(model.agent!.revisions.some((r) => r.startsWith('asked the model to call finish at turn 1'))).toBe(true);
+    const nudge = client.requests[1]!.messages.at(-1)!;
+    expect(nudge.role).toBe('user');
+    expect(JSON.stringify(nudge.content)).toContain('ended your turn without calling a tool');
+  });
+
   it('stops at the turn budget and records why, without failing the stage', async () => {
     const client = new FakeChatClient(() => [{ tool: 'get_evidence', input: { kind: 'template', id: 'nope' } }]);
     const result = await discover({ startUrl: `${site.baseUrl}/`, outDir, allowPrivate: true, model: { client }, budget: { ...budget, maxAgentTurns: 2, maxPagesToInspect: 1, maxProbesTotal: 0 }, sleep: async () => {} });

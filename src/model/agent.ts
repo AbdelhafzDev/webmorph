@@ -677,6 +677,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
   const system = `${HARNESS_SYSTEM}\n\n${services.today ? `Today is ${services.today}. Dates in the evidence may be stale; an example date for a search must lie ahead of today (a few days to a few weeks), and a date with no results is worth one or two other tries.\n\n` : ''}Budget: ${budget.maxTurns} turns, ${budget.maxFetches} HTTP reads, ${budget.maxInspections} browser inspections${services.browse ? `, ${budget.maxActions} browser actions` : ''}, ${budget.maxProposals} proposals.`;
   let reminded = false;
   let nudged = false;
+  let askedToFinish = false;
   try {
     while (record.turns < budget.maxTurns && !record.finished) {
       if (tokensSpent(record) >= budget.maxTokens) {
@@ -698,6 +699,13 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
       const toolUses = response.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
       messages.push({ role: 'assistant', content: response.content as Anthropic.Beta.BetaContentBlockParam[] });
       if (!toolUses.length) {
+        // A turn with text and no tool call usually means the model thinks it is done: ask once for finish (or more work).
+        if (response.stopReason === 'end_turn' && !askedToFinish && record.turns < budget.maxTurns) {
+          askedToFinish = true;
+          record.revisions.push(`asked the model to call finish at turn ${record.turns}: it ended its turn without a tool call`);
+          messages.push({ role: 'user', content: [{ type: 'text', text: 'Harness note: you ended your turn without calling a tool. If the work is done, call set_site_summary (unless already set) and finish with a short summary; otherwise continue with tool calls.' }] });
+          continue;
+        }
         record.stoppedBecause = response.stopReason === 'end_turn' ? 'the model ended its turn without calling finish' : `stop reason ${response.stopReason}`;
         break;
       }
