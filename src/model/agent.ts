@@ -9,6 +9,7 @@ import type { Logger } from '../core/job.js';
 import { shortHash } from '../core/ids.js';
 import { snake } from './naming.js';
 import { extractHtmlFacts } from '../html/extract.js';
+import { ApiLinker, FactBook } from './facts.js';
 import { extractPageData, shapeOfValue } from '../html/pageData.js';
 import { isGraphQLReadOnly, parseGraphQLRequest } from '../net/graphql.js';
 import { hostnameOf, sameSite } from '../net/url.js';
@@ -306,6 +307,8 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
   const record: AgentRecord = { applied: true, model: client.id, turns: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, toolCalls: [], proposals: { accepted: [], rejected: [] }, revisions: [], finished: false };
   const known = evidenceIndex(sources);
   const used = { fetches: 0, inspections: 0, actions: 0, proposals: 0 };
+  /** Links a proposed search to the endpoint the probes observed; its hypotheses go to a book the harness does not keep. */
+  const linker = new ApiLinker(sources.docs?.data.apis ?? [], sources.apiCandidates?.data.candidates ?? [], new FactBook());
   /** Names of proposals being validated right now: two proposals of one turn may not share a name. */
   const pendingNames = new Set<string>();
   /** Entities the model added or renamed: kept even when no capability references them. */
@@ -541,6 +544,13 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
         evidence: input.evidence.map((e) => ({ artifactType: e.artifactType as EvidenceRef['artifactType'], refId: e.refId, note: 'cited by the model harness' })),
         source: 'model',
       };
+      // A capability named by its page gets the endpoint the evidence already ties to it (D25: HTTP first): a search,
+      // the endpoint that carried the probe's typed text; a listing or detail, the endpoint named after its entity.
+      let attached: string | undefined;
+      if (!m.api) {
+        const primary = inputs.find((i) => i.required && i.type === 'string') ?? inputs[0];
+        attached = linker.linkProposed(capability, sources.evidence?.data.probes ?? [], primary?.name ?? 'query', entity ? model.entities.find((e) => e.name === entity) : undefined);
+      }
       const verdict = await services.validate(capability, model);
       if (!verdict.validated) {
         const reasons = verdict.tools.map((t) => `${t.name} (${t.transport}): ${t.verdict}${t.reason ? `, ${t.reason}` : ''}`).join('; ') || 'no tool could be generated from these mechanics';
@@ -552,7 +562,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
       }
       model.capabilities.push(capability);
       turnVerdicts.push({ index, accepted: capability.name });
-      return { accepted: true, capabilityId: capability.capabilityId, tools: verdict.tools };
+      return { accepted: true, capabilityId: capability.capabilityId, tools: verdict.tools, ...(attached ? { note: attached } : {}) };
       } finally {
         pendingNames.delete(input.name);
       }

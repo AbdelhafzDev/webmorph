@@ -114,6 +114,10 @@ describe('stage 8 model harness (D26)', () => {
         case 2:
           return [
             { tool: 'propose_capability', input: proposal('list_products_by_price', {}) },
+            // A listing named by its page, no API given: the documented endpoint named after the entity is attached.
+            { tool: 'propose_capability', input: proposal('list_products_page', { entity: 'product', mechanics: { navigateUrl: `${base}/products`, pathTemplate: null, queryParams: [{ param: 'sort', input: 'sort' }], resultLinkPattern: null, formId: null, fieldElementId: null, api: null } }) },
+            // A search named by its results page, no API given: the harness attaches the endpoint the search probe exercised (D25).
+            { tool: 'propose_capability', input: proposal('find_posts', { kind: 'search', title: 'Find posts', description: 'Search posts by keyword.', inputs: [{ name: 'keyword', type: 'string', required: true, description: 'Search text', example: 'product', source: 'url-param', param: 'q' }], mechanics: { navigateUrl: `${base}/search`, pathTemplate: null, queryParams: [{ param: 'q', input: 'keyword' }], resultLinkPattern: null, formId: null, fieldElementId: null, api: null } }) },
             { tool: 'revise_capability', input: { capabilityId: search.capabilityId, name: 'find_products', title: 'Find products', description: 'Search the catalog by keyword.', entity: null, drop: false, reason: null } },
             { tool: 'propose_entity', input: { name: 'product', plural: 'products', description: 'An item in the fixture catalog.', detailPageTypeId: null, listPageTypeIds: [], confidence: 0.9 } },
             { tool: 'set_site_summary', input: { purpose: 'A small demo shop with six products.', confidence: 0.9, hypotheses: [{ statement: 'Search matches product names.', confidence: 0.8, basedOn: [payload.facts[0]!.factId] }, { statement: 'Made up.', confidence: 0.9, basedOn: ['F999'] }], unresolved: ['Currency is not stated.'] } },
@@ -130,7 +134,15 @@ describe('stage 8 model harness (D26)', () => {
     const model = (await store.readArtifact(siteId, jobId, 'WebsiteModel', WebsiteModel)).data;
     const agent = model.agent!;
     expect(agent).toMatchObject({ applied: true, model: 'fake-agent', turns: 4, finished: true });
-    expect(agent.proposals.accepted).toEqual(['list_products_by_price']);
+    expect(agent.proposals.accepted).toEqual(['list_products_by_price', 'list_products_page', 'find_posts']);
+    const listed = model.capabilities.find((c) => c.name === 'list_products_page')!;
+    expect(listed.mechanics.api).toMatchObject({ method: 'GET', urlTemplate: `${base}/api/products`, queryParams: { sort: 'sort' } });
+    expect(client.resultsAfter(2).some((r) => r.text.includes('for this listing'))).toBe(true);
+    const attached = client.resultsAfter(2).find((r) => r.text.includes('find_posts') || r.text.includes('GraphQL'));
+    expect(attached?.text).toContain(`attached the site's own GET ${base}/api/products endpoint`);
+    const posts = model.capabilities.find((c) => c.name === 'find_posts')!;
+    expect(posts.mechanics.api).toMatchObject({ method: 'GET', urlTemplate: `${base}/api/products`, queryParams: { q: 'keyword' } });
+    expect(posts.evidence.some((e) => e.artifactType === 'ApiCandidates')).toBe(true);
     expect(agent.proposals.rejected.map((r) => r.name)).toEqual(['add_to_wishlist', 'list_products_fake', 'list_nowhere']);
     expect(agent.proposals.rejected[0]!.reason).toContain('GraphQL');
     expect(agent.proposals.rejected[1]!.reason).toContain('does not exist');
@@ -164,6 +176,8 @@ describe('stage 8 model harness (D26)', () => {
     const tools = (await store.readArtifact(siteId, jobId, 'ToolDefinition', ToolDefinition)).data.tools;
     const tool = tools.find((t) => t.name === 'list_products_by_price')!;
     expect(tool).toMatchObject({ transport: 'http', sideEffectClass: 'read' });
+    expect(tools.find((t) => t.name === 'find_posts')).toMatchObject({ transport: 'http' });
+    expect(tools.some((t) => t.name === 'find_posts_browser')).toBe(true);
     expect(tools.some((t) => t.name === 'find_products' || t.name === 'find_products_browser')).toBe(true);
     const report = (await store.readArtifact(siteId, jobId, 'ValidationReport', ValidationReport)).data;
     const v = report.tools.find((t) => t.toolId === tool.toolId)!;

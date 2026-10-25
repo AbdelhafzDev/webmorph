@@ -129,7 +129,8 @@ export const stage7Network: StageDefinition<DiscoveryInput> = {
       const allOk = statuses.length > 0 && statuses.every((s) => s < 300);
       const seenOn = Array.from(new Map(g.records.map((r) => [`${r.context.pageUrl}|${r.context.probeId ?? ''}`, r.context])).values()).slice(0, 20);
       candidates.push({
-        candidateId: `api-${shortHash(`${g.method} ${g.urlTemplate}?${g.queryParams.join(',')}`, 10)}`,
+        // One endpoint serves every GraphQL operation: the operation name keeps their ids apart.
+        candidateId: `api-${shortHash(`${g.method} ${g.urlTemplate}?${g.queryParams.join(',')}${gqlSample ? `#${gqlSample.operationName ?? gqlSample.query.slice(0, 40)}` : ''}`, 10)}`,
         method: g.method,
         host: g.host,
         pathPattern: g.pathPattern,

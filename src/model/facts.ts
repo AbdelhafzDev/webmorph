@@ -41,7 +41,7 @@ const KIND_LABEL: Record<PageTemplate['kind'], string> = {
   other: 'Page',
 };
 
-class FactBook {
+export class FactBook {
   readonly facts: Fact[] = [];
   readonly hypotheses: Hypothesis[] = [];
   fact(statement: string, evidence: EvidenceRef[]): string {
@@ -647,7 +647,7 @@ const SUGGEST_PATH = /suggest|autocomplete|typeahead|complete|hint/i;
  * promoted; one credentialed only by a cookie name is promoted and settled by
  * the cookie-less replay (D21).
  */
-class ApiLinker {
+export class ApiLinker {
   private readonly ops: Array<{ spec: ApiSpec; op: ApiOperation }>;
   constructor(
     specs: ApiSpec[],
@@ -671,6 +671,40 @@ class ApiLinker {
   private urlFor(spec: ApiSpec, op: ApiOperation): string {
     const server = spec.servers[0] ?? '';
     return `${server}${op.path.replace(/\{([^}]+)\}/g, (_, n: string) => `{{${snake(n) || 'id'}}}`)}`;
+  }
+
+  /**
+   * For a capability proposed without an API (the model named a page): the same evidence the deterministic model
+   * uses attaches one. A search gets the endpoint that carried a search probe's typed text (GraphQL or REST), mapped
+   * onto the capability's own input; a listing or a detail gets the documented or observed endpoint named after its
+   * entity. Returns a note for the model when something was attached.
+   */
+  linkProposed(cap: Capability, probes: ProbeRecord[], inputName: string, entity: Entity | undefined): string | undefined {
+    const apiOf = (c: Capability) => c.mechanics.api; // read through a call: the link methods assign it, which narrowing would not see
+    if (apiOf(cap)) return undefined;
+    if (cap.kind === 'list') {
+      this.linkList(cap, entity);
+      const api = apiOf(cap);
+      return api ? `the harness attached the site's own ${api.method} ${api.urlTemplate} endpoint (${api.source}) for this listing; the HTTP tool carries the capability's name and the page route is the fallback` : undefined;
+    }
+    if (cap.kind === 'detail') {
+      if (entity) this.linkDetail(cap, entity, cap.pageUrl);
+      const api = apiOf(cap);
+      return api ? `the harness attached the site's own ${api.method} ${api.urlTemplate} endpoint (${api.source}) for this detail; the HTTP tool carries the capability's name and the page route is the fallback` : undefined;
+    }
+    const candidates = probes.filter((p) => p.kind === 'search-submit' && p.action.value);
+    for (const probe of candidates) {
+      this.linkSearch(cap, probe, inputName);
+      const api = apiOf(cap);
+      if (!api) continue;
+      // linkSearch templates the probe's value as {{query}}; the proposal's input keeps its own name.
+      if (inputName !== 'query') {
+        if (api.graphql) api.graphql.variables = JSON.parse(JSON.stringify(api.graphql.variables).replaceAll('{{query}}', `{{${inputName}}}`)) as Record<string, unknown>;
+        api.queryParams = Object.fromEntries(Object.entries(api.queryParams).map(([k, v]) => [k, v === 'query' ? inputName : v]));
+      }
+      return `the harness attached the site's own ${api.graphql ? `GraphQL ${api.graphql.operationName}` : `${api.method} ${api.urlTemplate}`} endpoint, observed when the search probe typed "${probe.action.value}"; the HTTP tool carries the capability's name and the page route is the fallback`;
+    }
+    return undefined;
   }
 
   linkSearch(cap: Capability, probe: ProbeRecord | undefined, fieldName: string): void {
