@@ -315,6 +315,9 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
   const tools = [...harnessTools(Boolean(services.inspect) && !services.browse), ...(services.browse ? browseToolDefinitions() : [])];
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: [{ type: 'text', text: `Evidence for ${model.site.origin} (JSON data):\n${buildHarnessPayload(model, sources)}`, cache_control: { type: 'ephemeral' } }] }];
 
+  // Proposals of one turn finish in any order; their verdicts are recorded in call order once the turn is done.
+  let turnVerdicts: Array<{ index: number; accepted?: string; rejected?: { name: string; reason: string } }> = [];
+  let currentCall = 0;
   const handlers: Record<string, (input: Record<string, unknown>) => Promise<unknown>> = {
     async get_evidence(input) {
       const kind = String(input['kind']);
@@ -433,9 +436,10 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
     async propose_capability(raw) {
       if (used.proposals >= budget.maxProposals) throw new HarnessError('proposal budget exhausted');
       used.proposals += 1;
+      const index = currentCall;
       const input = raw as unknown as ProposalInput;
       const reject = (reason: string): never => {
-        record.proposals.rejected.push({ name: input.name, reason });
+        turnVerdicts.push({ index, rejected: { name: input.name, reason } });
         throw new HarnessError(`rejected: ${reason}`);
       };
       if (!NAME.test(input.name)) reject('name must be snake_case (a-z, 0-9, _)');
@@ -547,7 +551,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
         if (most < 3) reject(`a listing with no inputs over one fixed page must return three or more results on replay; it returned ${most}. Give the listing an input, or read the page with fetch_page instead`);
       }
       model.capabilities.push(capability);
-      record.proposals.accepted.push(capability.name);
+      turnVerdicts.push({ index, accepted: capability.name });
       return { accepted: true, capabilityId: capability.capabilityId, tools: verdict.tools };
       } finally {
         pendingNames.delete(input.name);
@@ -631,9 +635,10 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
       if (!services.browse) throw new HarnessError('no browsing session is available');
       if (used.proposals >= budget.maxProposals) throw new HarnessError('proposal budget exhausted');
       used.proposals += 1;
+      const index = currentCall;
       const input = raw as unknown as WorkflowProposal;
       const reject = (reason: string): never => {
-        record.proposals.rejected.push({ name: input.name, reason });
+        turnVerdicts.push({ index, rejected: { name: input.name, reason } });
         throw new HarnessError(`rejected: ${reason}`);
       };
       if (model.capabilities.some((c) => c.name === input.name)) reject(`a capability named ${input.name} already exists; revise it or choose another name`);
@@ -659,7 +664,7 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
       }
       if (capability.entity) touchedEntities.add(capability.entity);
       model.capabilities.push(capability);
-      record.proposals.accepted.push(capability.name);
+      turnVerdicts.push({ index, accepted: capability.name });
       return { accepted: true, capabilityId: capability.capabilityId, tools: verdict.tools };
     },
     async finish(input) {
@@ -699,13 +704,15 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
       // The calls of one turn run concurrently (reads, revisions, proposals each validated by replay), except those that
       // drive the one browsing session, which keep their order among themselves. Results are returned in call order.
       let browseChain: Promise<unknown> = Promise.resolve();
+      turnVerdicts = [];
       const outcomes = await Promise.all(
-        toolUses.map((call) => {
+        toolUses.map((call, index) => {
           const run = async () => {
             const handler = handlers[call.name];
             const input = (call.input ?? {}) as Record<string, unknown>;
             try {
               if (!handler) throw new HarnessError(`unknown tool ${call.name}`);
+              currentCall = index; // read synchronously by the handler before its first await
               return { ok: true, text: json(await handler(input)), input };
             } catch (err) {
               return { ok: false, text: err instanceof Error ? err.message : String(err), input };
@@ -717,6 +724,10 @@ export async function runModelHarness(client: ModelClient, base: WebsiteModelDat
           return next;
         }),
       );
+      for (const v of turnVerdicts.sort((a, b) => a.index - b.index)) {
+        if (v.accepted) record.proposals.accepted.push(v.accepted);
+        if (v.rejected) record.proposals.rejected.push(v.rejected);
+      }
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       toolUses.forEach((call, i) => {
         const { ok, text, input } = outcomes[i]!;
